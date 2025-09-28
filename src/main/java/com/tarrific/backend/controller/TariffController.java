@@ -8,21 +8,17 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/tariffs")
+@CrossOrigin(origins = "http://localhost:3000")
 public class TariffController {
 
-    private final TariffRepository repository;
+    private final TariffRepository tariffRepository;
 
-    public TariffController(TariffRepository repository) {
-        this.repository = repository;
+    public TariffController(TariffRepository tariffRepository) {
+        this.tariffRepository = tariffRepository;
     }
 
     @GetMapping
-    public List<Tariff> all() {
-        return repository.findAll();
-    }
-
-    @PostMapping
-    public Tariff create(@RequestBody Tariff tariff) {
-        return repository.save(tariff);
+    public List<Tariff> getAllTariffs() {
+        return tariffRepository.findAll();
     }
 }
