@@ -1,13 +1,14 @@
 package com.tarrific.backend.controller;
 
-import com.tarrific.backend.repository.TariffRepository;
 import com.tarrific.backend.dto.TariffDTO;
+import com.tarrific.backend.model.Tariff;
+import com.tarrific.backend.repository.TariffRepository;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.stream.Collectors;
 
 @RestController
-@RequestMapping("/tariffs")
+@RequestMapping("/api/tariffs")
 @CrossOrigin(origins = "http://localhost:3000")
 public class TariffController {
 
@@ -19,17 +20,17 @@ public class TariffController {
 
     @GetMapping
     public List<TariffDTO> getAllTariffs() {
-        return tariffRepository.findAll().stream().map(t ->
-                new TariffDTO(
-                        t.getCountryA().getName(),
-                        t.getCountryB().getName(),
-                        t.getHsCode().getCode(),
+        List<Tariff> tariffs = tariffRepository.findAll();
+        return tariffs.stream()
+                .map(t -> new TariffDTO(
+                        t.getId(),
+                        t.getHsCode().getHsCode(),
                         t.getHsCode().getDescription(),
-                        t.getRate(),
-                        t.getTariffType().name(),
-                        t.getStartDate(),
-                        t.getEndDate()
-                )
-        ).collect(Collectors.toList());
+                        t.getBaseRate(),
+                        t.getRateType(),
+                        t.getEffectiveDate(),
+                        t.getExpiryDate()
+                ))
+                .collect(Collectors.toList());
     }
 }

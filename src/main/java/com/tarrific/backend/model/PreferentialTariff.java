@@ -13,22 +13,28 @@ import java.time.LocalDate;
 @Getter
 @Setter
 @Entity
-@Table(name = "tariff", schema = "tariff")
-public class Tariff {
+@Table(name = "preferential_tariff", schema = "tariff")
+public class PreferentialTariff {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "tariff_id", nullable = false)
+    @Column(name = "pref_tariff_id", nullable = false)
     private Integer id;
 
     @NotNull
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @OnDelete(action = OnDeleteAction.CASCADE)
-    @JoinColumn(name = "hs_code", nullable = false)
-    private HsCode hsCode;
+    @JoinColumn(name = "tariff_id", nullable = false)
+    private Tariff tariff;
 
     @NotNull
-    @Column(name = "base_rate", nullable = false)
-    private Float baseRate;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @OnDelete(action = OnDeleteAction.CASCADE)
+    @JoinColumn(name = "agreement_id", nullable = false)
+    private TradeAgreement agreement;
+
+    @NotNull
+    @Column(name = "preferential_rate", nullable = false)
+    private Float preferentialRate;
 
     @Size(max = 50)
     @Column(name = "rate_type", length = 50)

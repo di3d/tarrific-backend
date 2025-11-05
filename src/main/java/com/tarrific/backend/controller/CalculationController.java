@@ -10,23 +10,26 @@ import org.springframework.web.bind.annotation.*;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api")
+@RequestMapping("/api/calculation")
 @RequiredArgsConstructor
 @CrossOrigin(origins = "http://localhost:3000")
 public class CalculationController {
 
     private final CalculationService calculationService;
 
-    @PostMapping("/calculate")
+    @PostMapping
     public ResponseEntity<?> calculate(@RequestBody CalculationRequest request) {
         try {
             CalculationResponse response = calculationService.calculate(request);
             return ResponseEntity.ok(response);
         } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity
+                    .badRequest()
+                    .body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
-            return ResponseEntity.internalServerError()
-                    .body(Map.of("error", "Failed to calculate tariff: " + e.getMessage()));
+            return ResponseEntity
+                    .internalServerError()
+                    .body(Map.of("error", "Failed to calculate tariff", "details", e.getMessage()));
         }
     }
 }

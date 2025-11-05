@@ -1,36 +1,33 @@
 package com.tarrific.backend.model;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
+import lombok.Getter;
+import lombok.Setter;
 
-
+@Getter
+@Setter
 @Entity
+@Table(name = "country", schema = "tariff")
 public class Country {
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @Column(name = "country_id", nullable = false)
+    private Integer id;
 
-    @Column(nullable = false, unique = true)
+    @Size(max = 100)
+    @NotNull
+    @Column(name = "name", nullable = false, length = 100)
     private String name;
-    private Double tariffRate;
 
-    public Long getId() {
-        return id;
-    }
+    @Size(max = 3)
+    @NotNull
+    @Column(name = "iso_code", columnDefinition = "CHAR(3)")
+    private String isoCode;
 
-    public String getName() {
-        return name;
-    }
+    @Size(max = 100)
+    @Column(name = "region", length = 100)
+    private String region;
 
-    public void setName(String name) {
-        this.name = name;
-    }
-
-    public Double getTariffRate() {
-        return tariffRate;
-    }
-
-    public void setTariffRate(Double tariffRate) {
-        this.tariffRate = tariffRate;
-    }
 }

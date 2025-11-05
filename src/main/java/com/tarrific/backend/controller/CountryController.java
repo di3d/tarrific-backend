@@ -10,7 +10,7 @@ import java.util.Optional;
 
 @CrossOrigin(origins = "http://localhost:3000")
 @RestController
-@RequestMapping("/countries")
+@RequestMapping("/api/countries")
 public class CountryController {
 
     private final CountryRepository repository;
@@ -25,6 +25,14 @@ public class CountryController {
         return repository.findAll();
     }
 
+    // READ one country
+    @GetMapping("/{id}")
+    public ResponseEntity<Country> getById(@PathVariable Integer id) {
+        return repository.findById(id)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
+
     // CREATE a new country
     @PostMapping
     public Country create(@RequestBody Country country) {
@@ -33,15 +41,16 @@ public class CountryController {
 
     // UPDATE an existing country
     @PutMapping("/{id}")
-    public ResponseEntity<Country> update(@PathVariable Long id, @RequestBody Country updatedCountry) {
+    public ResponseEntity<Country> update(@PathVariable Integer id, @RequestBody Country updatedCountry) {
         Optional<Country> optionalCountry = repository.findById(id);
-        if (!optionalCountry.isPresent()) {
+        if (optionalCountry.isEmpty()) {
             return ResponseEntity.notFound().build();
         }
 
         Country country = optionalCountry.get();
         country.setName(updatedCountry.getName());
-        country.setTariffRate(updatedCountry.getTariffRate());
+        country.setIsoCode(updatedCountry.getIsoCode());
+        country.setRegion(updatedCountry.getRegion());
 
         repository.save(country);
         return ResponseEntity.ok(country);
@@ -49,7 +58,7 @@ public class CountryController {
 
     // DELETE a country
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> delete(@PathVariable Long id) {
+    public ResponseEntity<Void> delete(@PathVariable Integer id) {
         if (!repository.existsById(id)) {
             return ResponseEntity.notFound().build();
         }
