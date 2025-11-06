@@ -27,6 +27,11 @@ public class CognitoService {
                 .build();
     }
 
+
+    public String getRoleForUser(String username) {
+        return "Admin";
+    }
+
     /**
      * Authenticate admin user with Cognito USER_PASSWORD_AUTH flow
      * and compute SECRET_HASH if client has a secret.

@@ -26,13 +26,15 @@ public class AuthController {
                     request.getPassword()
             );
 
-            // Return Cognito tokens directly to frontend
-            return ResponseEntity.ok(Map.of(
-                    "accessToken", result.accessToken(),
-                    "idToken", result.idToken(),
-                    "expiresIn", result.expiresIn(),
-                    "tokenType", result.tokenType()
-            ));
+        // Return Cognito tokens and role directly to frontend
+        String role = cognitoService.getRoleForUser(request.getEmail());
+        return ResponseEntity.ok(Map.of(
+            "accessToken", result.accessToken(),
+            "idToken", result.idToken(),
+            "expiresIn", result.expiresIn(),
+            "tokenType", result.tokenType(),
+            "role", role
+        ));
         } catch (Exception e) {
             return ResponseEntity.status(401).body(Map.of("error", e.getMessage()));
         }
