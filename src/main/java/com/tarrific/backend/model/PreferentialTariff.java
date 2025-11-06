@@ -9,17 +9,21 @@ import java.util.Date;
 @Getter
 @Setter
 @Entity
-@Table(name = "tariff", schema = "tariff")
-public class Tariff {
+@Table(name = "preferential_tariff", schema = "tariff")
+public class PreferentialTariff {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Integer tariffId;
+    private Integer prefTariffId;
 
     @ManyToOne
-    @JoinColumn(name = "hs_code", referencedColumnName = "hsCode")
-    private HsCode hsCode;
+    @JoinColumn(name = "tariff_id")
+    private Tariff tariff;
 
-    private Float baseRate;
+    @ManyToOne
+    @JoinColumn(name = "agreement_id")
+    private TradeAgreement agreement;
+
+    private Float preferentialRate;
     private String rateType;
     private Date effectiveDate;
     private Date expiryDate;

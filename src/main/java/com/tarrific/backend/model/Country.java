@@ -1,36 +1,18 @@
 package com.tarrific.backend.model;
 
 import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
 
-
+@Getter
+@Setter
 @Entity
+@Table(name = "country", schema = "tariff")
 public class Country {
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
-
-    @Column(nullable = false, unique = true)
+    private Integer countryId;
     private String name;
-    private Double tariffRate;
-
-    public Long getId() {
-        return id;
-    }
-
-    public String getName() {
-        return name;
-    }
-
-    public void setName(String name) {
-        this.name = name;
-    }
-
-    public Double getTariffRate() {
-        return tariffRate;
-    }
-
-    public void setTariffRate(Double tariffRate) {
-        this.tariffRate = tariffRate;
-    }
+    private String isoCode;
+    private String region;
 }

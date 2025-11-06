@@ -9,18 +9,14 @@ import java.util.Date;
 @Getter
 @Setter
 @Entity
-@Table(name = "tariff", schema = "tariff")
-public class Tariff {
+@Table(name = "trade_agreement", schema = "tariff")
+public class TradeAgreement {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Integer tariffId;
+    private Integer agreementId;
 
-    @ManyToOne
-    @JoinColumn(name = "hs_code", referencedColumnName = "hsCode")
-    private HsCode hsCode;
-
-    private Float baseRate;
-    private String rateType;
+    private String name;
+    private String description;
     private Date effectiveDate;
     private Date expiryDate;
 }

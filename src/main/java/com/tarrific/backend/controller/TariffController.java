@@ -1,35 +1,35 @@
 package com.tarrific.backend.controller;
 
+import com.tarrific.backend.model.Tariff;
 import com.tarrific.backend.repository.TariffRepository;
-import com.tarrific.backend.dto.TariffDTO;
 import org.springframework.web.bind.annotation.*;
+
 import java.util.List;
-import java.util.stream.Collectors;
 
 @RestController
-@RequestMapping("/tariffs")
-@CrossOrigin(origins = "http://localhost:3000")
+@RequestMapping("/api/tariffs")
 public class TariffController {
+    private final TariffRepository repository;
 
-    private final TariffRepository tariffRepository;
-
-    public TariffController(TariffRepository tariffRepository) {
-        this.tariffRepository = tariffRepository;
+    public TariffController(TariffRepository repository) {
+        this.repository = repository;
     }
 
     @GetMapping
-    public List<TariffDTO> getAllTariffs() {
-        return tariffRepository.findAll().stream().map(t ->
-                new TariffDTO(
-                        t.getCountryA().getName(),
-                        t.getCountryB().getName(),
-                        t.getHsCode().getCode(),
-                        t.getHsCode().getDescription(),
-                        t.getRate(),
-                        t.getTariffType().name(),
-                        t.getStartDate(),
-                        t.getEndDate()
-                )
-        ).collect(Collectors.toList());
+    public List<Tariff> getAll() { return repository.findAll(); }
+
+    @GetMapping("/{id}")
+    public Tariff getById(@PathVariable Integer id) { return repository.findById(id).orElse(null); }
+
+    @PostMapping
+    public Tariff create(@RequestBody Tariff t) { return repository.save(t); }
+
+    @PutMapping("/{id}")
+    public Tariff update(@PathVariable Integer id, @RequestBody Tariff t) {
+        t.setTariffId(id);
+        return repository.save(t);
     }
+
+    @DeleteMapping("/{id}")
+    public void delete(@PathVariable Integer id) { repository.deleteById(id); }
 }
