@@ -7,6 +7,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/hscodes")
+@CrossOrigin(origins = "http://localhost:3000")
 public class HsCodeController {
     private final HsCodeRepository hsCodeRepository;
 
@@ -16,12 +17,12 @@ public class HsCodeController {
 
     @GetMapping
     public List<HsCode> getAll() {
-        return hsCodeRepository.findAll(); // returns List<HsCode>
+        return hsCodeRepository.findAll();
     }
 
     @GetMapping("/{code}")
     public HsCode getByCode(@PathVariable String code) {
-        return hsCodeRepository.findById(Integer.valueOf(code)).orElse(null);
+        return hsCodeRepository.findByHsCode(code).orElse(null);
     }
 
     @PostMapping
@@ -37,6 +38,6 @@ public class HsCodeController {
 
     @DeleteMapping("/{code}")
     public void delete(@PathVariable String code) {
-        hsCodeRepository.deleteById(Integer.valueOf(code));
+        hsCodeRepository.deleteById(code);
     }
 }

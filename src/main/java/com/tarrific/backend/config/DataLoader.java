@@ -35,11 +35,11 @@ public class DataLoader {
                 countryRepo.saveAll(List.of(sg, jp, cn, kr, my));
 
                 // --- HS CODES (Electronics-focused) ---
-                HsCode hsPhones = new HsCode(); hsPhones.setHsCode("851712"); hsPhones.setDescription("Mobile phones and smartphones");
-                HsCode hsLaptops = new HsCode(); hsLaptops.setHsCode("847130"); hsLaptops.setDescription("Portable computers and laptops");
-                HsCode hsChips = new HsCode(); hsChips.setHsCode("854231"); hsChips.setDescription("Electronic integrated circuits (processors, controllers)");
-                HsCode hsDisplays = new HsCode(); hsDisplays.setHsCode("852872"); hsDisplays.setDescription("Monitors and projectors");
-                HsCode hsBatteries = new HsCode(); hsBatteries.setHsCode("850760"); hsBatteries.setDescription("Lithium-ion batteries");
+                HsCode hsPhones = new HsCode(); hsPhones.setHsCode("8517.12"); hsPhones.setDescription("Mobile phones and smartphones");
+                HsCode hsLaptops = new HsCode(); hsLaptops.setHsCode("8471.30"); hsLaptops.setDescription("Portable computers and laptops");
+                HsCode hsChips = new HsCode(); hsChips.setHsCode("8542.31"); hsChips.setDescription("Electronic integrated circuits (processors, controllers)");
+                HsCode hsDisplays = new HsCode(); hsDisplays.setHsCode("8528.72"); hsDisplays.setDescription("Monitors and projectors");
+                HsCode hsBatteries = new HsCode(); hsBatteries.setHsCode("8507.60"); hsBatteries.setDescription("Lithium-ion batteries");
                 hsRepo.saveAll(List.of(hsPhones, hsLaptops, hsChips, hsDisplays, hsBatteries));
 
                 // --- TARIFFS (Base rates for electronics imports) ---

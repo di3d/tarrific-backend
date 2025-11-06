@@ -4,18 +4,18 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.time.LocalDate;
+import java.util.Date;
 
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 public class AgreementDTO {
-    private Long id;
-    private Long countryAId;
-    private Long countryBId;
-    private Long hscodeId;
-    private Double rate;
-    private String tariffType;
-    private LocalDate startDate;
-    private LocalDate endDate;
+    private Integer id;
+    private Integer tariffId;
+    private Integer agreementId;
+    private String agreementName;
+    private Double preferentialRate;
+    private String rateType;
+    private Date effectiveDate;
+    private Date expiryDate;
 }
