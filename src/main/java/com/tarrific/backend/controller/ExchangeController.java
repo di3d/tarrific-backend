@@ -4,16 +4,16 @@ import com.tarrific.backend.dto.ExchangeResponse;
 import com.tarrific.backend.service.ExchangeService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api")
+@CrossOrigin(origins = {"http://localhost:3000"}, allowCredentials = "true")
 public class ExchangeController {
+
     private final ExchangeService exchangeService;
 
     public ExchangeController(ExchangeService exchangeService) {
@@ -21,28 +21,60 @@ public class ExchangeController {
     }
 
     @GetMapping("/exchange")
-    public ResponseEntity<?> getExchange(@RequestParam(name = "from") String from,
-                                         @RequestParam(name = "to") String to,
-                                         @RequestParam(name = "amount") String amountStr) {
-        if (from == null || from.isBlank() || to == null || to.isBlank() || amountStr == null || amountStr.isBlank()) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(java.util.Map.of("error", "Missing query parameters (from,to,amount)"));
+    public ResponseEntity<?> getExchange(
+            @RequestParam(name = "from") String from,
+            @RequestParam(name = "to") String to,
+            @RequestParam(name = "amount") String amountStr) {
+
+        // ✅ Validate query params
+        if (from == null || from.isBlank() || to == null || to.isBlank() ||
+                amountStr == null || amountStr.isBlank()) {
+            return ResponseEntity
+                    .status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("error", "Missing query parameters (from, to, amount)"));
         }
 
         BigDecimal amount;
         try {
             amount = new BigDecimal(amountStr);
         } catch (NumberFormatException e) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(java.util.Map.of("error", "Invalid amount"));
+            return ResponseEntity
+                    .status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("error", "Invalid amount format: " + amountStr));
         }
 
         try {
-            ExchangeResponse resp = exchangeService.convert(from, to, amount);
+            // ✅ Call CurrencyAPI via service
+            ExchangeResponse resp = exchangeService.convert(from.toUpperCase(), to.toUpperCase(), amount);
             return ResponseEntity.ok(resp);
+
         } catch (IllegalArgumentException e) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(java.util.Map.of("error", e.getMessage()));
+            // Input validation errors
+            System.err.println("⚠️ Validation error: " + e.getMessage());
+            return ResponseEntity
+                    .status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("error", e.getMessage()));
+
+        } catch (RuntimeException e) {
+            // Provider-related errors (e.g., 404/401/502)
+            System.err.println("❌ Provider error: " + e.getMessage());
+            return ResponseEntity
+                    .status(HttpStatus.BAD_GATEWAY)
+                    .body(Map.of(
+                            "error", "Currency provider error",
+                            "detail", e.getMessage()
+                    ));
+
         } catch (Exception e) {
-            // If the provider returned something bad, map to 502
-            return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(java.util.Map.of("error", "Provider error", "detail", e.getMessage()));
+            // Unexpected internal errors
+            System.err.println("💥 Internal error: " + e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity
+                    .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of(
+                            "error", "Internal server error",
+                            "detail", e.getMessage()
+                    ));
         }
     }
 }
