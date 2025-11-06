@@ -6,6 +6,7 @@ import com.tarrific.backend.dto.CalculationResponse;
 import com.tarrific.backend.model.*;
 import com.tarrific.backend.repository.*;
 import lombok.RequiredArgsConstructor;
+import org.jetbrains.annotations.NotNull;
 import org.springframework.stereotype.Service;
 
 import java.text.ParseException;
@@ -45,28 +46,7 @@ public class CalculationService {
                 .orElseThrow(() -> new IllegalArgumentException("Invalid HS Code: " + request.getHsCode()));
 
         // Parse the calculation date
-        Date calculationDate;
-        try {
-            if (request.getDate() != null && !request.getDate().isEmpty()) {
-                SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd");
-                formatter.setLenient(false);
-                calculationDate = formatter.parse(request.getDate());
-
-                // Set to end of day to ensure we capture tariffs effective anytime during this
-                // date
-                java.util.Calendar cal = java.util.Calendar.getInstance();
-                cal.setTime(calculationDate);
-                cal.set(java.util.Calendar.HOUR_OF_DAY, 23);
-                cal.set(java.util.Calendar.MINUTE, 59);
-                cal.set(java.util.Calendar.SECOND, 59);
-                cal.set(java.util.Calendar.MILLISECOND, 999);
-                calculationDate = cal.getTime();
-            } else {
-                calculationDate = new Date();
-            }
-        } catch (ParseException e) {
-            throw new IllegalArgumentException("Invalid date format. Use yyyy-MM-dd");
-        }
+        Date calculationDate = getDate(request);
 
         // Find all active tariffs for this HS code
         List<Tariff> activeTariffs = tariffRepository.findActiveByHsCodeAndDate(hsCode, calculationDate);
@@ -104,7 +84,7 @@ public class CalculationService {
             // Use the first preferential tariff found (you could add logic to pick the best
             // one)
             if (!preferentialTariffs.isEmpty()) {
-                preferentialTariff = preferentialTariffs.get(0);
+                preferentialTariff = preferentialTariffs.getFirst();
             }
         }
 
@@ -136,19 +116,52 @@ public class CalculationService {
 
         // Set applicable preferential tariff if found
         if (preferentialTariff != null) {
-            AgreementDTO agreementDTO = new AgreementDTO();
-            agreementDTO.setId(preferentialTariff.getPrefTariffId());
-            agreementDTO.setTariffId(preferentialTariff.getTariff().getTariffId());
-            agreementDTO.setAgreementId(preferentialTariff.getAgreement().getAgreementId());
-            agreementDTO.setAgreementName(preferentialTariff.getAgreement().getName());
-            agreementDTO.setPreferentialRate(preferentialTariff.getPreferentialRate().doubleValue());
-            agreementDTO.setRateType(preferentialTariff.getRateType());
-            agreementDTO.setEffectiveDate(preferentialTariff.getEffectiveDate());
-            agreementDTO.setExpiryDate(preferentialTariff.getExpiryDate());
+            AgreementDTO agreementDTO = getAgreementDTO(preferentialTariff);
             response.setApplicableTariff(agreementDTO);
         }
 
         System.out.println(response);
         return response;
+    }
+
+    @NotNull
+    private static AgreementDTO getAgreementDTO(PreferentialTariff preferentialTariff) {
+        AgreementDTO agreementDTO = new AgreementDTO();
+        agreementDTO.setId(preferentialTariff.getPrefTariffId());
+        agreementDTO.setTariffId(preferentialTariff.getTariff().getTariffId());
+        agreementDTO.setAgreementId(preferentialTariff.getAgreement().getAgreementId());
+        agreementDTO.setAgreementName(preferentialTariff.getAgreement().getName());
+        agreementDTO.setPreferentialRate(preferentialTariff.getPreferentialRate().doubleValue());
+        agreementDTO.setRateType(preferentialTariff.getRateType());
+        agreementDTO.setEffectiveDate(preferentialTariff.getEffectiveDate());
+        agreementDTO.setExpiryDate(preferentialTariff.getExpiryDate());
+        return agreementDTO;
+    }
+
+    @NotNull
+    private static Date getDate(CalculationRequest request) {
+        Date calculationDate;
+        try {
+            if (request.getDate() != null && !request.getDate().isEmpty()) {
+                SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd");
+                formatter.setLenient(false);
+                calculationDate = formatter.parse(request.getDate());
+
+                // Set to end of day to ensure we capture tariffs effective anytime during this
+                // date
+                java.util.Calendar cal = java.util.Calendar.getInstance();
+                cal.setTime(calculationDate);
+                cal.set(java.util.Calendar.HOUR_OF_DAY, 23);
+                cal.set(java.util.Calendar.MINUTE, 59);
+                cal.set(java.util.Calendar.SECOND, 59);
+                cal.set(java.util.Calendar.MILLISECOND, 999);
+                calculationDate = cal.getTime();
+            } else {
+                calculationDate = new Date();
+            }
+        } catch (ParseException e) {
+            throw new IllegalArgumentException("Invalid date format. Use yyyy-MM-dd");
+        }
+        return calculationDate;
     }
 }
