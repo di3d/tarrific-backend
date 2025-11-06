@@ -18,25 +18,28 @@ public class AuthController {
 
     private final CognitoService cognitoService;
 
-    @PostMapping("/login")
-    public ResponseEntity<?> login(@RequestBody LoginRequest request) {
-        try {
-            AuthenticationResultType result = cognitoService.authenticate(
-                    request.getEmail(),
-                    request.getPassword()
-            );
+@PostMapping("/login")
+public ResponseEntity<?> login(@RequestBody LoginRequest request) {
+    try {
+        AuthenticationResultType result = cognitoService.authenticate(
+                request.getEmail(),
+                request.getPassword()
+        );
 
-        // Return Cognito tokens and role directly to frontend
-        String role = cognitoService.getRoleForUser(request.getEmail());
+        // ✅ Decode the user's group from ID token
+        String role = cognitoService.getRoleFromIdToken(result.idToken());
+
         return ResponseEntity.ok(Map.of(
-            "accessToken", result.accessToken(),
-            "idToken", result.idToken(),
-            "expiresIn", result.expiresIn(),
-            "tokenType", result.tokenType(),
-            "role", role
+                "accessToken", result.accessToken(),
+                "idToken", result.idToken(),
+                "expiresIn", result.expiresIn(),
+                "tokenType", result.tokenType(),
+                "role", role
         ));
-        } catch (Exception e) {
-            return ResponseEntity.status(401).body(Map.of("error", e.getMessage()));
-        }
+
+    } catch (Exception e) {
+        return ResponseEntity.status(401).body(Map.of("error", e.getMessage()));
     }
+}
+
 }

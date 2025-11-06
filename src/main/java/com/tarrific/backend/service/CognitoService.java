@@ -1,5 +1,7 @@
 package com.tarrific.backend.service;
 
+import com.auth0.jwt.JWT;
+import com.auth0.jwt.interfaces.DecodedJWT;
 import io.github.cdimascio.dotenv.Dotenv;
 import org.springframework.stereotype.Service;
 import software.amazon.awssdk.regions.Region;
@@ -9,6 +11,7 @@ import software.amazon.awssdk.services.cognitoidentityprovider.model.*;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import java.util.Base64;
+import java.util.List;
 import java.util.Map;
 
 @Service
@@ -27,15 +30,6 @@ public class CognitoService {
                 .build();
     }
 
-
-    public String getRoleForUser(String username) {
-        return "Admin";
-    }
-
-    /**
-     * Authenticate admin user with Cognito USER_PASSWORD_AUTH flow
-     * and compute SECRET_HASH if client has a secret.
-     */
     public AuthenticationResultType authenticate(String email, String password) {
         try {
             String secretHash = calculateSecretHash(email);
@@ -58,12 +52,26 @@ public class CognitoService {
         }
     }
 
-    /** Compute SECRET_HASH using HmacSHA256 if client secret exists */
+    /** ✅ Decode role (Cognito group) from ID token */
+    public String getRoleFromIdToken(String idToken) {
+        try {
+            DecodedJWT decoded = JWT.decode(idToken);
+            List<String> groups = decoded.getClaim("cognito:groups").asList(String.class);
+
+            if (groups != null && !groups.isEmpty()) {
+                return groups.get(0); // e.g., "Admin", "Agent"
+            }
+            return "Unknown";
+        } catch (Exception e) {
+            return "Unknown";
+        }
+    }
+
     private String calculateSecretHash(String username) {
         try {
             String clientSecret = dotenv.get("COGNITO_CLIENT_SECRET");
             if (clientSecret == null || clientSecret.isEmpty()) {
-                return ""; // no secret hash required
+                return "";
             }
 
             String message = username + clientId;
