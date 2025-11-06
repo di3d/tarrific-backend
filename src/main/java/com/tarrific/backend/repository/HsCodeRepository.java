@@ -1,6 +1,6 @@
 package com.tarrific.backend.repository;
 
-import com.tarrific.backend.model.Country;
+import com.tarrific.backend.model.HsCode;
 import org.springframework.data.jpa.repository.JpaRepository;
 
-public interface HsCodeRepository extends JpaRepository<Country, Integer> {}
+public interface HsCodeRepository extends JpaRepository<HsCode, Integer> {}
