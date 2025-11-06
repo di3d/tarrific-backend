@@ -21,7 +21,7 @@ public class HsCodeController {
 
     @GetMapping("/{code}")
     public HsCode getByCode(@PathVariable String code) {
-        return hsCodeRepository.findById(code).orElse(null);
+        return hsCodeRepository.findById(Integer.valueOf(code)).orElse(null);
     }
 
     @PostMapping
@@ -37,6 +37,6 @@ public class HsCodeController {
 
     @DeleteMapping("/{code}")
     public void delete(@PathVariable String code) {
-        hsCodeRepository.deleteById(code);
+        hsCodeRepository.deleteById(Integer.valueOf(code));
     }
 }
