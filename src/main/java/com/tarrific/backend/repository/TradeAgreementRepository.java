@@ -3,4 +3,4 @@ package com.tarrific.backend.repository;
 import com.tarrific.backend.model.Country;
 import org.springframework.data.jpa.repository.JpaRepository;
 
-public interface CountryRepository extends JpaRepository<Country, Integer> {}
+public interface TradeAgreementRepository extends JpaRepository<Country, Integer> {}
