@@ -2,9 +2,12 @@ package com.tarrific.backend.controller;
 
 import com.tarrific.backend.dto.TradeAgreementDTO;
 import com.tarrific.backend.dto.TradeAgreementViewDTO;
+import com.tarrific.backend.model.Country;
 import com.tarrific.backend.model.TradeAgreement;
+import com.tarrific.backend.repository.TradeAgreementCountryRepository;
 import com.tarrific.backend.repository.TradeAgreementRepository;
 import com.tarrific.backend.service.DashboardService;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -16,10 +19,12 @@ import java.util.stream.Collectors;
 public class TradeAgreementController {
     private final TradeAgreementRepository repository;
     private final DashboardService dashboardService;
+    private final TradeAgreementCountryRepository tacRepo;
 
-    public TradeAgreementController(TradeAgreementRepository repository, DashboardService dashboardService) {
+    public TradeAgreementController(TradeAgreementRepository repository, DashboardService dashboardService, TradeAgreementCountryRepository tacRepo) {
         this.repository = repository;
         this.dashboardService = dashboardService;
+        this.tacRepo = tacRepo;
     }
 
     /**
@@ -60,6 +65,12 @@ public class TradeAgreementController {
         ta.setAgreementId(id);
         return repository.save(ta);
     }
+
+    @GetMapping("/{id}/countries")
+    public ResponseEntity<List<Country>> countries(@PathVariable Long id){
+        return ResponseEntity.ok(tacRepo.findCountriesByAgreementId(id));
+    }
+
 
     @DeleteMapping("/{id}")
     public void delete(@PathVariable Integer id) { 
