@@ -4,7 +4,9 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 
 @Getter
 @Setter
@@ -23,4 +25,11 @@ public class Tariff {
     private String rateType;
     private Date effectiveDate;
     private Date expiryDate;
+
+    @OneToMany(mappedBy = "tariff", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<TariffOrigin> tariffOrigins = new ArrayList<>();
+
+    @OneToMany(mappedBy = "tariff", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<TariffDestination> tariffDestinations = new ArrayList<>();
+
 }
