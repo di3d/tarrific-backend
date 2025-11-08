@@ -5,6 +5,9 @@ import com.tarrific.backend.model.Country;
 import com.tarrific.backend.model.TariffDestination;
 import com.tarrific.backend.repository.CountryRepository;
 import com.tarrific.backend.repository.TariffDestinationRepository;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -42,8 +45,16 @@ public class CountryController {
     }
 
     @DeleteMapping("/{id}")
-    public void delete(@PathVariable Integer id) { repository.deleteById(id); }
-    
+    public ResponseEntity<?> deleteCountry(@PathVariable Long id) {
+        try {
+            repository.deleteById(Math.toIntExact(id));
+            return ResponseEntity.noContent().build();
+        } catch (DataIntegrityViolationException e) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body("Cannot delete: Country is referenced by tariffs or agreements.");
+        }
+    }
+
     private CountryDTO toDTO(Country country) {
         CountryDTO dto = new CountryDTO();
         dto.setId(country.getCountryId());
