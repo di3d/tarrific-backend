@@ -1,5 +1,6 @@
 package com.tarrific.backend.model;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -39,6 +40,7 @@ public class TariffOrigin {
     @ManyToOne
     @MapsId("tariffId")
     @JoinColumn(name = "tariff_id", nullable = false)
+    @JsonBackReference("tariff-origins")
     private Tariff tariff;
 
     @ManyToOne
