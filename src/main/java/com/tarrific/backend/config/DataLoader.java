@@ -2,7 +2,8 @@ package com.tarrific.backend.config;
 
 import com.tarrific.backend.model.*;
 import com.tarrific.backend.repository.*;
-import org.springframework.boot.CommandLineRunner;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.ApplicationListener;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Bean;
 
@@ -13,7 +14,7 @@ import java.util.List;
 public class DataLoader {
 
     @Bean
-    CommandLineRunner initData(
+    ApplicationListener<ApplicationReadyEvent> initDataListener(
             CountryRepository countryRepo,
             HsCodeRepository hsRepo,
             TariffRepository tariffRepo,
@@ -23,10 +24,10 @@ public class DataLoader {
             TradeAgreementCountryRepository tacRepo,
             PreferentialTariffRepository prefRepo
     ) {
-        return args -> {
+        return event -> {
             if (countryRepo.count() > 0) return; // already seeded
 
-            // === Countries (expanded list) ===
+            // === Countries ===
             Country sg = save(countryRepo, "Singapore","SG","Asia");
             Country my = save(countryRepo, "Malaysia","MY","Asia");
             Country jp = save(countryRepo, "Japan","JP","Asia");
@@ -41,7 +42,7 @@ public class DataLoader {
             Country in = save(countryRepo, "India","IN","Asia");
             Country us = save(countryRepo, "United States","US","North America");
 
-            // === HS Codes (expanded set) ===
+            // === HS Codes ===
             HsCode phones     = hs("8517.12","Mobile phones and smartphones");
             HsCode laptops    = hs("8471.30","Portable laptops and notebook PCs");
             HsCode displays   = hs("8528.52","LCD / LED Displays");
@@ -61,8 +62,8 @@ public class DataLoader {
 
             tariffRepo.saveAll(List.of(tPhones,tLaps,tDisp,tBatt,tRout,tProc));
 
-            // === Allowed Origins (expanded) ===
-            List<Country> majorExporters = List.of(cn,jp,kr,us,tw(in)); // India treated as processor hub too
+            // === Allowed Origins ===
+            List<Country> majorExporters = List.of(cn,jp,kr,us,tw(in));
             for (Tariff t : List.of(tPhones,tLaps,tDisp,tBatt,tRout,tProc)) {
                 for (Country c : majorExporters) {
                     TariffOrigin o = new TariffOrigin();
@@ -91,7 +92,8 @@ public class DataLoader {
             // Memberships
             for (Country c : asean) tacRepo.save(link(afta, c));
             for (Country c : List.of(sg,my,cn,jp,kr,au,nz)) tacRepo.save(link(rcep, c));
-            tacRepo.save(link(fta_us_sg, sg)); tacRepo.save(link(fta_us_sg, us));
+            tacRepo.save(link(fta_us_sg, sg));
+            tacRepo.save(link(fta_us_sg, us));
 
             // === Preferential Tariffs ===
             prefRepo.save(pref(tPhones, rcep, 0f));
@@ -103,25 +105,54 @@ public class DataLoader {
 
     // Helpers
     private Country save(CountryRepository repo, String name, String iso, String region){
-        Country c=new Country(); c.setName(name); c.setIsoCode(iso); c.setRegion(region); return repo.save(c);
+        Country c = new Country();
+        c.setName(name);
+        c.setIsoCode(iso);
+        c.setRegion(region);
+        return repo.save(c);
     }
-    private HsCode hs(String code,String desc){ HsCode h=new HsCode(); h.setHsCode(code); h.setDescription(desc); return h; }
+
+    private HsCode hs(String code,String desc){
+        HsCode h = new HsCode();
+        h.setHsCode(code);
+        h.setDescription(desc);
+        return h;
+    }
+
     private Tariff tariff(HsCode hs, float rate, String type){
-        Tariff t=new Tariff(); t.setHsCode(hs); t.setBaseRate(rate); t.setRateType(type); t.setEffectiveDate(new Date()); return t;
+        Tariff t = new Tariff();
+        t.setHsCode(hs);
+        t.setBaseRate(rate);
+        t.setRateType(type);
+        t.setEffectiveDate(new Date());
+        return t;
     }
+
     private TradeAgreement agreement(TradeAgreementRepository r, String n, String d){
-        TradeAgreement a=new TradeAgreement(); a.setName(n); a.setDescription(d); a.setEffectiveDate(new Date()); return r.save(a);
+        TradeAgreement a = new TradeAgreement();
+        a.setName(n);
+        a.setDescription(d);
+        a.setEffectiveDate(new Date());
+        return r.save(a);
     }
+
     private TradeAgreementCountry link(TradeAgreement a, Country c){
-        TradeAgreementCountry x=new TradeAgreementCountry(); x.setAgreement(a); x.setCountry(c); return x;
+        TradeAgreementCountry x = new TradeAgreementCountry();
+        x.setAgreement(a);
+        x.setCountry(c);
+        return x;
     }
+
     private PreferentialTariff pref(Tariff t, TradeAgreement a, float rate){
-        PreferentialTariff p=new PreferentialTariff();
-        p.setTariff(t); p.setAgreement(a); p.setPreferentialRate(rate);
-        p.setRateType("Preferential"); p.setEffectiveDate(new Date());
+        PreferentialTariff p = new PreferentialTariff();
+        p.setTariff(t);
+        p.setAgreement(a);
+        p.setPreferentialRate(rate);
+        p.setRateType("Preferential");
+        p.setEffectiveDate(new Date());
         return p;
     }
 
-    // Short-hand for India -> treat as microprocessor hub too
+    // India helper
     private Country tw(Country c) { return c; }
 }
