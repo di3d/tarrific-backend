@@ -12,7 +12,7 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "http://localhost:3000")
+@CrossOrigin(origins = "${CORS_ORIGIN}", allowCredentials = "true")
 public class CalculationController {
 
     private final CalculationService calculationService;

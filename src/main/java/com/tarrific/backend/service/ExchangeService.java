@@ -3,7 +3,7 @@ package com.tarrific.backend.service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tarrific.backend.dto.ExchangeResponse;
-import io.github.cdimascio.dotenv.Dotenv;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
@@ -25,10 +25,12 @@ public class ExchangeService {
     private final ObjectMapper mapper = new ObjectMapper();
     private final HttpClient client = HttpClient.newBuilder().build();
 
-    public ExchangeService() {
-        Dotenv dotenv = Dotenv.load();
-        this.apiKey = dotenv.get("CURRENCYAPI_KEY");
-        this.providerBase = dotenv.get("EXCHANGE_PROVIDER_URL", "https://api.currencyapi.com/v3");
+    public ExchangeService(
+            @Value("${CURRENCYAPI_KEY}") String apiKey,
+            @Value("${EXCHANGE_PROVIDER_URL:https://api.currencyapi.com/v3}") String providerBase
+    ) {
+        this.apiKey = apiKey;
+        this.providerBase = providerBase;
     }
 
     public ExchangeResponse convert(String from, String to, BigDecimal amount)

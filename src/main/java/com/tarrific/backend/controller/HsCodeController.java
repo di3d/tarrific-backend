@@ -7,7 +7,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/hscodes")
-@CrossOrigin(origins = "http://localhost:3000")
+@CrossOrigin(origins = "${CORS_ORIGIN}", allowCredentials = "true")
 public class HsCodeController {
     private final HsCodeRepository hsCodeRepository;
 

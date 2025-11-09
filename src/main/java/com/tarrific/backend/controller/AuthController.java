@@ -13,7 +13,7 @@ import software.amazon.awssdk.services.cognitoidentityprovider.model.Authenticat
 @RestController
 @RequestMapping("/api")
 @RequiredArgsConstructor
-@CrossOrigin(origins = {"http://localhost:3000"}, allowCredentials = "true")
+@CrossOrigin(origins = {"${CORS_ORIGIN}"}, allowCredentials = "true")
 public class AuthController {
 
     private final CognitoService cognitoService;

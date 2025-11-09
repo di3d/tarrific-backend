@@ -11,7 +11,7 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api")
-@CrossOrigin(origins = {"http://localhost:3000"}, allowCredentials = "true")
+@CrossOrigin(origins = {"${CORS_ORIGIN}"}, allowCredentials = "true")
 public class ExchangeController {
 
     private final ExchangeService exchangeService;

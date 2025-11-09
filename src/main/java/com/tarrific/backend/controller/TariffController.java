@@ -10,7 +10,7 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/tariffs")
-@CrossOrigin(origins = "http://localhost:3000")
+@CrossOrigin(origins = "${CORS_ORIGIN}", allowCredentials = "true")
 public class TariffController {
 
     private final TariffRepository tariffRepository;

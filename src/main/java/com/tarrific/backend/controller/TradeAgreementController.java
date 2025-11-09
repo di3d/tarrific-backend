@@ -15,7 +15,7 @@ import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/trade-agreements")
-@CrossOrigin(origins = "http://localhost:3000")
+@CrossOrigin(origins = "${CORS_ORIGIN}", allowCredentials = "true")
 public class TradeAgreementController {
     private final TradeAgreementRepository repository;
     private final DashboardService dashboardService;

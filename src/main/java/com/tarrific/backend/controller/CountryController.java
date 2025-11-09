@@ -15,7 +15,7 @@ import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/countries")
-@CrossOrigin(origins = "http://localhost:3000")
+@CrossOrigin(origins = "${CORS_ORIGIN}", allowCredentials = "true")
 public class CountryController {
     private final CountryRepository repository;
     private final TariffDestinationRepository tariffDestinationRepository;

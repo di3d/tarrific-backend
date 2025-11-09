@@ -2,7 +2,7 @@ package com.tarrific.backend.service;
 
 import com.auth0.jwt.JWT;
 import com.auth0.jwt.interfaces.DecodedJWT;
-import io.github.cdimascio.dotenv.Dotenv;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.cognitoidentityprovider.CognitoIdentityProviderClient;
@@ -19,14 +19,18 @@ public class CognitoService {
 
     private final CognitoIdentityProviderClient cognitoClient;
     private final String clientId;
-    private final Dotenv dotenv;
+    private final String clientSecret;
 
-    public CognitoService(Dotenv dotenv) {
-        this.dotenv = dotenv;
-        this.clientId = dotenv.get("COGNITO_CLIENT_ID");
+    public CognitoService(
+            @Value("${AWS_REGION}") String region,
+            @Value("${COGNITO_CLIENT_ID}") String clientId,
+            @Value("${COGNITO_CLIENT_SECRET}") String clientSecret
+    ) {
+        this.clientId = clientId;
+        this.clientSecret = clientSecret;
 
         this.cognitoClient = CognitoIdentityProviderClient.builder()
-                .region(Region.of(dotenv.get("AWS_REGION")))
+                .region(Region.of(region))
                 .build();
     }
 
@@ -52,16 +56,11 @@ public class CognitoService {
         }
     }
 
-    /** ✅ Decode role (Cognito group) from ID token */
     public String getRoleFromIdToken(String idToken) {
         try {
             DecodedJWT decoded = JWT.decode(idToken);
             List<String> groups = decoded.getClaim("cognito:groups").asList(String.class);
-
-            if (groups != null && !groups.isEmpty()) {
-                return groups.get(0); // e.g., "Admin", "Agent"
-            }
-            return "Unknown";
+            return (groups != null && !groups.isEmpty()) ? groups.get(0) : "Unknown";
         } catch (Exception e) {
             return "Unknown";
         }
@@ -69,11 +68,7 @@ public class CognitoService {
 
     private String calculateSecretHash(String username) {
         try {
-            String clientSecret = dotenv.get("COGNITO_CLIENT_SECRET");
-            if (clientSecret == null || clientSecret.isEmpty()) {
-                return "";
-            }
-
+            if (clientSecret == null || clientSecret.isEmpty()) return "";
             String message = username + clientId;
             Mac mac = Mac.getInstance("HmacSHA256");
             mac.init(new SecretKeySpec(clientSecret.getBytes("UTF-8"), "HmacSHA256"));
@@ -84,3 +79,4 @@ public class CognitoService {
         }
     }
 }
+
