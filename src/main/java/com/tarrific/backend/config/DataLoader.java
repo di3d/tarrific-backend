@@ -4,11 +4,12 @@ import com.tarrific.backend.model.*;
 import com.tarrific.backend.repository.*;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.ApplicationListener;
-import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
 
 import java.util.Date;
 import java.util.List;
+import java.util.Optional;
 
 @Configuration
 public class DataLoader {
@@ -25,85 +26,127 @@ public class DataLoader {
             PreferentialTariffRepository prefRepo
     ) {
         return event -> {
-            if (countryRepo.count() > 0) return; // already seeded
-
-            // === Countries ===
-            Country sg = save(countryRepo, "Singapore","SG","Asia");
-            Country my = save(countryRepo, "Malaysia","MY","Asia");
-            Country jp = save(countryRepo, "Japan","JP","Asia");
-            Country cn = save(countryRepo, "China","CN","Asia");
-            Country kr = save(countryRepo, "South Korea","KR","Asia");
-            Country th = save(countryRepo, "Thailand","TH","Asia");
-            Country id = save(countryRepo, "Indonesia","ID","Asia");
-            Country vn = save(countryRepo, "Vietnam","VN","Asia");
-            Country ph = save(countryRepo, "Philippines","PH","Asia");
-            Country au = save(countryRepo, "Australia","AU","Oceania");
-            Country nz = save(countryRepo, "New Zealand","NZ","Oceania");
-            Country in = save(countryRepo, "India","IN","Asia");
-            Country us = save(countryRepo, "United States","US","North America");
-
-            // === HS Codes ===
-            HsCode phones     = hs("8517.12","Mobile phones and smartphones");
-            HsCode laptops    = hs("8471.30","Portable laptops and notebook PCs");
-            HsCode displays   = hs("8528.52","LCD / LED Displays");
-            HsCode batteries  = hs("8507.60","Lithium-ion batteries");
-            HsCode routers    = hs("8517.62","Wireless routers and access points");
-            HsCode processors = hs("8542.31","Microprocessors");
-
-            hsRepo.saveAll(List.of(phones, laptops, displays, batteries, routers, processors));
-
-            // === Base Tariffs ===
-            Tariff tPhones = tariff(phones,10f,"Ad Valorem");
-            Tariff tLaps  = tariff(laptops,5f,"Ad Valorem");
-            Tariff tDisp  = tariff(displays,12f,"Ad Valorem");
-            Tariff tBatt  = tariff(batteries,6f,"Ad Valorem");
-            Tariff tRout  = tariff(routers,8f,"Ad Valorem");
-            Tariff tProc  = tariff(processors,3f,"Ad Valorem");
-
-            tariffRepo.saveAll(List.of(tPhones,tLaps,tDisp,tBatt,tRout,tProc));
-
-            // === Allowed Origins ===
-            List<Country> majorExporters = List.of(cn,jp,kr,us,tw(in));
-            for (Tariff t : List.of(tPhones,tLaps,tDisp,tBatt,tRout,tProc)) {
-                for (Country c : majorExporters) {
-                    TariffOrigin o = new TariffOrigin();
-                    o.setTariff(t);
-                    o.setCountry(c);
-                    tariffOriginRepo.save(o);
-                }
+            // === COUNTRIES ===
+            if (countryRepo.count() == 0) {
+                Country sg = save(countryRepo, "Singapore","SG","Asia");
+                Country my = save(countryRepo, "Malaysia","MY","Asia");
+                Country jp = save(countryRepo, "Japan","JP","Asia");
+                Country cn = save(countryRepo, "China","CN","Asia");
+                Country kr = save(countryRepo, "South Korea","KR","Asia");
+                Country th = save(countryRepo, "Thailand","TH","Asia");
+                Country id = save(countryRepo, "Indonesia","ID","Asia");
+                Country vn = save(countryRepo, "Vietnam","VN","Asia");
+                Country ph = save(countryRepo, "Philippines","PH","Asia");
+                Country au = save(countryRepo, "Australia","AU","Oceania");
+                Country nz = save(countryRepo, "New Zealand","NZ","Oceania");
+                Country in = save(countryRepo, "India","IN","Asia");
+                Country us = save(countryRepo, "United States","US","North America");
+                System.out.println("Countries seeded.");
             }
 
-            // === Allowed Destinations ===
-            List<Country> asean = List.of(sg,my,th,id,vn,ph);
-            for (Tariff t : List.of(tPhones,tLaps,tDisp,tBatt,tRout,tProc)) {
-                for (Country c : asean) {
-                    TariffDestination d = new TariffDestination();
-                    d.setTariff(t);
-                    d.setCountry(c);
-                    tariffDestinationRepo.save(d);
+            // === Ensure HS Codes exist (from HsCodeLoader) ===
+            if (hsRepo.count() == 0) {
+                System.err.println("HS codes not loaded yet. HsCodeLoader should import CSV before DataLoader runs.");
+                return;
+            }
+
+            // Example lookups (using real imported HS6 codes)
+            HsCode phones     = findHs(hsRepo, "851713"); // Smartphones
+            HsCode telephones = findHs(hsRepo, "851714"); // Non-smartphones
+            HsCode laptops    = findHs(hsRepo, "847130");
+            HsCode displays   = findHs(hsRepo, "852852");
+            HsCode batteries  = findHs(hsRepo, "850760");
+            HsCode routers    = findHs(hsRepo, "851762");
+            HsCode processors = findHs(hsRepo, "854231");
+
+            // If any key HS codes missing, skip tariff seeding
+            if (phones == null || laptops == null || displays == null ||
+                    batteries == null || routers == null || processors == null) {
+                System.err.println("Some example HS codes missing from DB. Skipping tariff seeding.");
+                return;
+            }
+
+            // === Base Tariffs ===
+            if (tariffRepo.count() == 0) {
+                Tariff tPhones = tariff(phones,10f,"Ad Valorem");
+                Tariff tLaps  = tariff(laptops,5f,"Ad Valorem");
+                Tariff tDisp  = tariff(displays,12f,"Ad Valorem");
+                Tariff tBatt  = tariff(batteries,6f,"Ad Valorem");
+                Tariff tRout  = tariff(routers,8f,"Ad Valorem");
+                Tariff tProc  = tariff(processors,3f,"Ad Valorem");
+
+                tariffRepo.saveAll(List.of(tPhones,tLaps,tDisp,tBatt,tRout,tProc));
+                System.out.println("Base tariffs seeded.");
+
+                // === Allowed Origins & Destinations ===
+                List<Country> allCountries = countryRepo.findAll();
+                List<Country> asean = allCountries.stream()
+                        .filter(c -> List.of("SG","MY","TH","ID","VN","PH").contains(c.getIsoCode()))
+                        .toList();
+
+                List<Country> majorExporters = allCountries.stream()
+                        .filter(c -> List.of("CN","JP","KR","US","IN").contains(c.getIsoCode()))
+                        .toList();
+
+                for (Tariff t : List.of(tPhones,tLaps,tDisp,tBatt,tRout,tProc)) {
+                    for (Country c : majorExporters) {
+                        TariffOrigin o = new TariffOrigin();
+                        o.setTariff(t);
+                        o.setCountry(c);
+                        tariffOriginRepo.save(o);
+                    }
+                    for (Country c : asean) {
+                        TariffDestination d = new TariffDestination();
+                        d.setTariff(t);
+                        d.setCountry(c);
+                        tariffDestinationRepo.save(d);
+                    }
                 }
+                System.out.println("Origins and destinations seeded.");
             }
 
             // === Trade Agreements ===
-            TradeAgreement afta = agreement(tradeRepo, "ASEAN Free Trade Area", "ASEAN intra-regional");
-            TradeAgreement rcep = agreement(tradeRepo, "RCEP", "ASEAN + CN, JP, KR, AU, NZ");
-            TradeAgreement fta_us_sg = agreement(tradeRepo, "US-SG FTA", "Bilateral SG-USA");
+            if (tradeRepo.count() == 0) {
+                TradeAgreement afta = agreement(tradeRepo, "ASEAN Free Trade Area", "ASEAN intra-regional");
+                TradeAgreement rcep = agreement(tradeRepo, "RCEP", "ASEAN + CN, JP, KR, AU, NZ");
+                TradeAgreement fta_us_sg = agreement(tradeRepo, "US-SG FTA", "Bilateral SG-USA");
 
-            // Memberships
-            for (Country c : asean) tacRepo.save(link(afta, c));
-            for (Country c : List.of(sg,my,cn,jp,kr,au,nz)) tacRepo.save(link(rcep, c));
-            tacRepo.save(link(fta_us_sg, sg));
-            tacRepo.save(link(fta_us_sg, us));
+                // Memberships
+                List<Country> asean = countryRepo.findAll().stream()
+                        .filter(c -> List.of("SG","MY","TH","ID","VN","PH").contains(c.getIsoCode()))
+                        .toList();
+
+                for (Country c : asean) tacRepo.save(link(afta, c));
+                for (Country c : countryRepo.findAll().stream()
+                        .filter(c -> List.of("SG","MY","CN","JP","KR","AU","NZ").contains(c.getIsoCode()))
+                        .toList()) {
+                    tacRepo.save(link(rcep, c));
+                }
+                tacRepo.save(link(fta_us_sg, countryRepo.findByIsoCodeIgnoreCase("SG").orElseThrow()));
+                tacRepo.save(link(fta_us_sg, countryRepo.findByIsoCodeIgnoreCase("US").orElseThrow()));
+                System.out.println("Trade agreements seeded.");
+            }
 
             // === Preferential Tariffs ===
-            prefRepo.save(pref(tPhones, rcep, 0f));
-            prefRepo.save(pref(tLaps,  rcep, 1f));
-            prefRepo.save(pref(tBatt,  afta, 2f));
-            prefRepo.save(pref(tPhones, fta_us_sg, 0f));
+            if (prefRepo.count() == 0) {
+                Tariff tPhones = tariffRepo.findByHsCode(phones).stream().findFirst().orElseThrow();
+                Tariff tLaps   = tariffRepo.findByHsCode(laptops).stream().findFirst().orElseThrow();
+                Tariff tBatt   = tariffRepo.findByHsCode(batteries).stream().findFirst().orElseThrow();
+
+                TradeAgreement rcep = tradeRepo.findByName("RCEP").orElseThrow();
+                TradeAgreement afta = tradeRepo.findByName("ASEAN Free Trade Area").orElseThrow();
+                TradeAgreement fta  = tradeRepo.findByName("US-SG FTA").orElseThrow();
+
+                prefRepo.save(pref(tPhones, rcep, 0f));
+                prefRepo.save(pref(tLaps,  rcep, 1f));
+                prefRepo.save(pref(tBatt,  afta, 2f));
+                prefRepo.save(pref(tPhones, fta, 0f));
+                System.out.println("Preferential tariffs seeded.");
+            }
         };
     }
 
-    // Helpers
+    // --- Helpers ---
     private Country save(CountryRepository repo, String name, String iso, String region){
         Country c = new Country();
         c.setName(name);
@@ -112,11 +155,9 @@ public class DataLoader {
         return repo.save(c);
     }
 
-    private HsCode hs(String code,String desc){
-        HsCode h = new HsCode();
-        h.setHsCode(code);
-        h.setDescription(desc);
-        return h;
+    private HsCode findHs(HsCodeRepository repo, String code) {
+        Optional<HsCode> opt = repo.findByHsCode(code);
+        return opt.orElse(null);
     }
 
     private Tariff tariff(HsCode hs, float rate, String type){
@@ -152,7 +193,4 @@ public class DataLoader {
         p.setEffectiveDate(new Date());
         return p;
     }
-
-    // India helper
-    private Country tw(Country c) { return c; }
 }

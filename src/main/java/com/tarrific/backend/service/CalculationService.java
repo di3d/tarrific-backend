@@ -33,11 +33,11 @@ public class CalculationService {
         }
 
         // Find countries
-        Country originCountry = countryRepository.findByName(request.getOriginCountry())
+        Country originCountry = countryRepository.findByNameIgnoreCase(request.getOriginCountry())
                 .orElseThrow(
                         () -> new IllegalArgumentException("Origin country not found: " + request.getOriginCountry()));
 
-        Country importingCountry = countryRepository.findByName(request.getImportingCountry())
+        Country importingCountry = countryRepository.findByNameIgnoreCase(request.getImportingCountry())
                 .orElseThrow(() -> new IllegalArgumentException(
                         "Importing country not found: " + request.getImportingCountry()));
 

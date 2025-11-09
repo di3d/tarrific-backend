@@ -36,6 +36,16 @@ public class HsCodeController {
         return hsCodeRepository.save(hs);
     }
 
+    @GetMapping("/search")
+    public List<HsCode> search(@RequestParam String q) {
+        String query = q.toLowerCase();
+        return hsCodeRepository.findAll().stream()
+                .filter(h -> h.getHsCode().toLowerCase().contains(query)
+                        || h.getDescription().toLowerCase().contains(query))
+                .limit(20)
+                .toList();
+    }
+
     @DeleteMapping("/{code}")
     public void delete(@PathVariable String code) {
         hsCodeRepository.deleteById(code);
