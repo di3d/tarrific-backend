@@ -1,39 +1,32 @@
 # =========================
 # 1. BUILD STAGE
 # =========================
-FROM maven:3.9.6-eclipse-temurin-21 AS build
+FROM maven:3.9.6-eclipse-temurin-22 AS build
 
-# Set work directory
 WORKDIR /app
 
-# Copy pom.xml and download dependencies first (for layer caching)
+# Copy POM first for dependency caching
 COPY pom.xml .
 RUN mvn dependency:go-offline -B
 
-# Copy source code
+# Copy source and build
 COPY src ./src
-
-# Package the application
 RUN mvn clean package -DskipTests
 
 # =========================
 # 2. RUNTIME STAGE
 # =========================
-FROM eclipse-temurin:21-jdk-jammy
+FROM eclipse-temurin:22-jdk-jammy
 
-# Set app directory
 WORKDIR /app
 
-# Copy the built JAR from the build stage
+# Copy compiled JAR from the build stage
 COPY --from=build /app/target/*.jar app.jar
 
-# Expose backend port
+# Expose app port
 EXPOSE 8080
 
-# Optional: use environment variables for DB configuration
-# ENV SPRING_DATASOURCE_URL=jdbc:mysql://mariadb:3306/tariff
-# ENV SPRING_DATASOURCE_USERNAME=tarrific
-# ENV SPRING_DATASOURCE_PASSWORD=tarrific123
+# Environment variables are injected by the platform (Render, Railway, etc.)
+# No secrets baked into image
 
-# Run the Spring Boot app
 ENTRYPOINT ["java", "-XX:+UseContainerSupport", "-Dfile.encoding=UTF-8", "-jar", "app.jar"]
