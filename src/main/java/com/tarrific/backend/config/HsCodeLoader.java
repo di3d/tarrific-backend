@@ -1,7 +1,9 @@
 package com.tarrific.backend.config;
 
 import com.tarrific.backend.model.HsCode;
+import com.tarrific.backend.model.HsSection;
 import com.tarrific.backend.repository.HsCodeRepository;
+import com.tarrific.backend.repository.HsSectionRepository;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
@@ -18,9 +20,9 @@ import java.util.List;
 public class HsCodeLoader {
 
     @Bean
-    CommandLineRunner loadHsCodes(HsCodeRepository repo) {
+    CommandLineRunner loadHsCodes(HsCodeRepository codeRepo, HsSectionRepository sectionRepo) {
         return args -> {
-            if (repo.count() > 0) {
+            if (codeRepo.count() > 0) {
                 System.out.println("HS code table already populated. Skipping CSV import.");
                 return;
             }
@@ -34,35 +36,61 @@ public class HsCodeLoader {
             try (var reader = new InputStreamReader(in, StandardCharsets.UTF_8);
                  var parser = new CSVParser(reader, CSVFormat.DEFAULT
                          .builder()
-                         .setHeader() // uses header row: section,hscode,description,parent,level
+                         .setHeader() // section,hscode,description,parent,level
                          .setSkipHeaderRecord(true)
                          .build())) {
 
                 List<HsCode> batch = new ArrayList<>(5000);
+                int skipped = 0;
 
                 for (CSVRecord r : parser) {
-                    String level = safe(r, "level");         // "2", "4", "6"
-                    String code  = safe(r, "hscode");        // keep leading zeros
-                    String desc  = safe(r, "description");
+                    String sectionCode = safe(r, "section");
+                    String code = safe(r, "hscode");
+                    String desc = safe(r, "description");
+                    String parent = safe(r, "parent");
+                    String level = safe(r, "level");
 
-                    // import only leaf subheadings (HS6)
-                    if (!"6".equals(level)) continue;
-                    if (code.isBlank()) continue;
-                    if (!code.chars().allMatch(Character::isDigit)) continue; // skip TOTAL or odd rows
+                    // === Filtering rules ===
+                    if (code.isBlank() || desc.isBlank()) {
+                        skipped++;
+                        continue;
+                    }
+                    if ("TOTAL".equalsIgnoreCase(parent)) {
+                        skipped++;
+                        continue;
+                    }
+                    if (!code.chars().allMatch(Character::isDigit)) {
+                        skipped++;
+                        continue;
+                    }
+                    // Only import levels 2, 4, or 6
+                    if (!List.of("2", "4", "6").contains(level)) {
+                        skipped++;
+                        continue;
+                    }
+                    // Uncomment this if you only want HS6-level codes:
+                    // if (!"6".equals(level)) continue;
+
+                    HsSection section = sectionRepo.findByCode(sectionCode).orElse(null);
 
                     HsCode hs = new HsCode();
-                    hs.setHsCode(code);        // String PK
+                    hs.setHsCode(code);
                     hs.setDescription(desc);
+                    hs.setParent(parent);
+                    hs.setLevel(level);
+                    hs.setSection(section);
+
                     batch.add(hs);
 
                     if (batch.size() == 2000) {
-                        repo.saveAll(batch);
+                        codeRepo.saveAll(batch);
                         batch.clear();
                     }
                 }
 
-                if (!batch.isEmpty()) repo.saveAll(batch);
-                System.out.println("HS6 import complete.");
+                if (!batch.isEmpty()) codeRepo.saveAll(batch);
+                System.out.printf("HS code import complete. Skipped %d summary rows.%n", skipped);
+
             } catch (Exception e) {
                 System.err.println("Failed to load HS codes: " + e.getMessage());
             }
