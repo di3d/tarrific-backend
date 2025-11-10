@@ -50,6 +50,9 @@ public class TariffController {
     // === Create new tariff ===
     @PostMapping
     public Tariff create(@RequestBody Tariff t) {
+        if (hasSameCountry(t)) {
+            throw new IllegalArgumentException("Origin and destination cannot be the same country.");
+        }
         attachExistingHsCode(t);
         normalizeCountries(t);
         Tariff saved = tariffRepository.save(t);
@@ -61,38 +64,31 @@ public class TariffController {
     @Transactional
     @PutMapping("/{id}")
     public Tariff update(@PathVariable Integer id, @RequestBody Tariff incoming) {
+        if (hasSameCountry(incoming)) {
+            throw new IllegalArgumentException("Origin and destination cannot be the same country.");
+        }
+
         Tariff existing = tariffRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Tariff not found: " + id));
 
         attachExistingHsCode(incoming);
-
         existing.setBaseRate(incoming.getBaseRate());
         existing.setRateType(incoming.getRateType());
         existing.setEffectiveDate(incoming.getEffectiveDate());
         existing.setExpiryDate(incoming.getExpiryDate());
         existing.setHsCode(incoming.getHsCode());
 
-        // Remove existing children entirely
-        for (TariffOrigin o : new ArrayList<>(existing.getTariffOrigins())) {
-            o.setTariff(null);
-        }
-        for (TariffDestination d : new ArrayList<>(existing.getTariffDestinations())) {
-            d.setTariff(null);
-        }
+        for (TariffOrigin o : new ArrayList<>(existing.getTariffOrigins())) o.setTariff(null);
+        for (TariffDestination d : new ArrayList<>(existing.getTariffDestinations())) d.setTariff(null);
         existing.getTariffOrigins().clear();
         existing.getTariffDestinations().clear();
-
-        // Force Hibernate to apply orphanRemoval deletes immediately
         tariffRepository.flush();
 
-        // Rebuild new associations
         normalizeCountries(incoming);
-
         for (TariffOrigin o : incoming.getTariffOrigins()) {
             o.setTariff(existing);
             existing.getTariffOrigins().add(o);
         }
-
         for (TariffDestination d : incoming.getTariffDestinations()) {
             d.setTariff(existing);
             existing.getTariffDestinations().add(d);
@@ -178,4 +174,19 @@ public class TariffController {
         if (t.getTariffDestinations() != null)
             tariffDestinationRepository.saveAll(t.getTariffDestinations());
     }
+
+    /** Validates that no country appears in both origin and destination lists */
+    private boolean hasSameCountry(Tariff tariff) {
+        if (tariff.getTariffOrigins() == null || tariff.getTariffDestinations() == null) return false;
+
+        List<String> originNames = tariff.getTariffOrigins().stream()
+                .map(o -> o.getCountry().getName().trim().toLowerCase())
+                .toList();
+        List<String> destNames = tariff.getTariffDestinations().stream()
+                .map(d -> d.getCountry().getName().trim().toLowerCase())
+                .toList();
+
+        return originNames.stream().anyMatch(destNames::contains);
+    }
+
 }
