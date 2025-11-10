@@ -68,7 +68,7 @@ public class TradeAgreementController {
 
     @GetMapping("/{id}/countries")
     public ResponseEntity<List<Country>> countries(@PathVariable Long id){
-        return ResponseEntity.ok(tacRepo.findCountriesByAgreementId(id));
+        return ResponseEntity.ok(tacRepo.findCountriesByAgreementId(Math.toIntExact(id)));
     }
 
 

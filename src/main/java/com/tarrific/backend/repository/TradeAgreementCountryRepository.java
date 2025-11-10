@@ -5,7 +5,7 @@ import org.springframework.data.jpa.repository.*;
 import org.springframework.data.repository.query.Param;
 import java.util.List;
 
-public interface TradeAgreementCountryRepository extends JpaRepository<TradeAgreementCountry, Long> {
+public interface TradeAgreementCountryRepository extends JpaRepository<TradeAgreementCountry, Integer> {
     @Query("SELECT tac.country FROM TradeAgreementCountry tac WHERE tac.agreement.agreementId = :id")
-    List<Country> findCountriesByAgreementId(@Param("id") Long agreementId);
+    List<Country> findCountriesByAgreementId(@Param("id") Integer agreementId);
 }

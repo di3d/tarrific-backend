@@ -7,6 +7,7 @@ import org.springframework.context.ApplicationListener;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
 import java.util.Optional;
@@ -107,9 +108,12 @@ public class DataLoader {
 
             // === Trade Agreements ===
             if (tradeRepo.count() == 0) {
-                TradeAgreement afta = agreement(tradeRepo, "ASEAN Free Trade Area", "ASEAN intra-regional");
-                TradeAgreement rcep = agreement(tradeRepo, "RCEP", "ASEAN + CN, JP, KR, AU, NZ");
-                TradeAgreement fta_us_sg = agreement(tradeRepo, "US-SG FTA", "Bilateral SG-USA");
+                TradeAgreement afta = agreement(tradeRepo, "ASEAN Free Trade Area",
+                        "ASEAN intra-regional", 2030);
+                TradeAgreement rcep = agreement(tradeRepo, "RCEP",
+                        "ASEAN + CN, JP, KR, AU, NZ", 2035);
+                TradeAgreement fta_us_sg = agreement(tradeRepo, "US-SG FTA",
+                        "Bilateral SG-USA", 2032);
 
                 // Memberships
                 List<Country> asean = countryRepo.findAll().stream()
@@ -169,11 +173,18 @@ public class DataLoader {
         return t;
     }
 
-    private TradeAgreement agreement(TradeAgreementRepository r, String n, String d){
+    private TradeAgreement agreement(TradeAgreementRepository r, String n, String d, int expiryYear){
         TradeAgreement a = new TradeAgreement();
         a.setName(n);
         a.setDescription(d);
-        a.setEffectiveDate(new Date());
+        Date now = new Date();
+        a.setEffectiveDate(now);
+
+        Calendar cal = Calendar.getInstance();
+        cal.setTime(now);
+        cal.set(Calendar.YEAR, expiryYear);
+        a.setExpiryDate(cal.getTime());
+
         return r.save(a);
     }
 
