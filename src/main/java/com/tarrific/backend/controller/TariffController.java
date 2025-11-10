@@ -2,8 +2,10 @@ package com.tarrific.backend.controller;
 
 import com.tarrific.backend.model.*;
 import com.tarrific.backend.repository.*;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -56,14 +58,47 @@ public class TariffController {
     }
 
     // === Update tariff ===
+    @Transactional
     @PutMapping("/{id}")
-    public Tariff update(@PathVariable Integer id, @RequestBody Tariff t) {
-        t.setTariffId(id);
-        attachExistingHsCode(t);
-        normalizeCountries(t);
-        Tariff updated = tariffRepository.save(t);
-        saveOriginsAndDestinations(updated);
-        return updated;
+    public Tariff update(@PathVariable Integer id, @RequestBody Tariff incoming) {
+        Tariff existing = tariffRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Tariff not found: " + id));
+
+        attachExistingHsCode(incoming);
+
+        existing.setBaseRate(incoming.getBaseRate());
+        existing.setRateType(incoming.getRateType());
+        existing.setEffectiveDate(incoming.getEffectiveDate());
+        existing.setExpiryDate(incoming.getExpiryDate());
+        existing.setHsCode(incoming.getHsCode());
+
+        // Remove existing children entirely
+        for (TariffOrigin o : new ArrayList<>(existing.getTariffOrigins())) {
+            o.setTariff(null);
+        }
+        for (TariffDestination d : new ArrayList<>(existing.getTariffDestinations())) {
+            d.setTariff(null);
+        }
+        existing.getTariffOrigins().clear();
+        existing.getTariffDestinations().clear();
+
+        // Force Hibernate to apply orphanRemoval deletes immediately
+        tariffRepository.flush();
+
+        // Rebuild new associations
+        normalizeCountries(incoming);
+
+        for (TariffOrigin o : incoming.getTariffOrigins()) {
+            o.setTariff(existing);
+            existing.getTariffOrigins().add(o);
+        }
+
+        for (TariffDestination d : incoming.getTariffDestinations()) {
+            d.setTariff(existing);
+            existing.getTariffDestinations().add(d);
+        }
+
+        return tariffRepository.save(existing);
     }
 
     // === Delete tariff ===

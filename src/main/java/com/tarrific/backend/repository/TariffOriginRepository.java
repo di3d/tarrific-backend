@@ -11,4 +11,6 @@ public interface TariffOriginRepository extends JpaRepository<TariffOrigin, Tari
     List<TariffOrigin> findByTariff(Tariff tariff);
     List<TariffOrigin> findByCountry(Country country);
     List<TariffOrigin> findByTariffIn(List<Tariff> tariffs);
+
+    void deleteAllByTariff(Tariff tariff);
 }

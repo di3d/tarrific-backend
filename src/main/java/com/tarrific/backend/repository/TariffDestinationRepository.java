@@ -11,4 +11,6 @@ public interface TariffDestinationRepository extends JpaRepository<TariffDestina
     List<TariffDestination> findByTariff(Tariff tariff);
     List<TariffDestination> findByCountry(Country country);
     List<TariffDestination> findByTariffIn(List<Tariff> tariffs);
+
+    void deleteAllByTariff(Tariff tariff);
 }
