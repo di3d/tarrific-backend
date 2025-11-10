@@ -164,14 +164,24 @@ public class DataLoader {
         return opt.orElse(null);
     }
 
-    private Tariff tariff(HsCode hs, float rate, String type){
+    private Tariff tariff(HsCode hs, float rate, String type) {
         Tariff t = new Tariff();
         t.setHsCode(hs);
         t.setBaseRate(rate);
         t.setRateType(type);
-        t.setEffectiveDate(new Date());
+
+        Date now = new Date();
+        t.setEffectiveDate(now);
+
+        // expiry = 5 years from now
+        Calendar cal = Calendar.getInstance();
+        cal.setTime(now);
+        cal.add(Calendar.YEAR, 5);
+        t.setExpiryDate(cal.getTime());
+
         return t;
     }
+
 
     private TradeAgreement agreement(TradeAgreementRepository r, String n, String d, int expiryYear){
         TradeAgreement a = new TradeAgreement();
