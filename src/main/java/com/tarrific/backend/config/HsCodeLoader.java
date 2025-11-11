@@ -10,89 +10,101 @@ import org.apache.commons.csv.CSVRecord;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.DependsOn;
 import org.springframework.core.annotation.Order;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 
-@Order(2)
 @Configuration
 public class HsCodeLoader {
 
-    @Bean
-    CommandLineRunner loadHsCodes(HsCodeRepository codeRepo, HsSectionRepository sectionRepo) {
+    /**
+     * Loads HS codes after sections.
+     * Looks for /seed/hs_codes.csv with headers: hsCode,description,level,parent,sectionCode
+     * Falls back to a small in-memory set if missing.
+     */
+    @Bean(name = "hsCodeSeeder")
+    @Order(2)
+    @DependsOn("hsSectionSeeder")
+    @Transactional
+    public CommandLineRunner hsCodeSeeder(HsCodeRepository codeRepo, HsSectionRepository sectionRepo) {
         return args -> {
             if (codeRepo.count() > 0) {
-                System.out.println("HS code table already populated. Skipping CSV import.");
+                System.out.println("HS codes already present. Skipping.");
                 return;
             }
 
-            var in = getClass().getResourceAsStream("/data/harmonized-system.csv");
-            if (in == null) {
-                System.err.println("CSV not found at /data/harmonized-system.csv");
-                return;
-            }
+            List<HsCode> batch = new ArrayList<>();
+            try {
+                InputStream in = getClass().getResourceAsStream("/data/harmonized-system.csv");
+                System.out.println("[DEBUG] Found harmonized-system.csv: " + (in != null));
+                if (in != null) {
+                    try (InputStreamReader r = new InputStreamReader(in, StandardCharsets.UTF_8);
+                         CSVParser parser = CSVFormat.DEFAULT
+                                 .withFirstRecordAsHeader()
+                                 .withIgnoreEmptyLines()
+                                 .parse(r)) {
 
-            try (var reader = new InputStreamReader(in, StandardCharsets.UTF_8);
-                 var parser = new CSVParser(reader, CSVFormat.DEFAULT
-                         .builder()
-                         .setHeader() // section,hscode,description,parent,level
-                         .setSkipHeaderRecord(true)
-                         .build())) {
+                        for (CSVRecord rec : parser) {
+                            String sectionCode = safe(rec, "section").trim().toUpperCase();
+                            String hs = safe(rec, "hscode").trim();
+                            String desc = safe(rec, "description").trim();
+                            String parent = safe(rec, "parent").trim();
+                            String level = safe(rec, "level").trim();
 
-                List<HsCode> batch = new ArrayList<>(5000);
-                int skipped = 0;
+                            // Skip top-level rows (TOTAL or level 2)
+                            if ("TOTAL".equalsIgnoreCase(parent) || "2".equals(level)) {
+                                continue;
+                            }
 
-                for (CSVRecord r : parser) {
-                    String sectionCode = safe(r, "section");
-                    String code = safe(r, "hscode");
-                    String desc = safe(r, "description");
-                    String parent = safe(r, "parent");
-                    String level = safe(r, "level");
+                            HsCode code = new HsCode();
+                            code.setHsCode(hs);
+                            code.setDescription(desc);
+                            code.setLevel(level);
+                            code.setParent(parent);
 
-                    // === Filtering rules ===
-                    if (code.isBlank() || desc.isBlank()) {
-                        skipped++;
-                        continue;
+                            HsSection section = sectionRepo.findByCode(sectionCode).orElse(null);
+                            code.setSection(section);
+
+                            batch.add(code);
+                            if (batch.size() >= 1000) {
+                                codeRepo.saveAll(batch);
+                                batch.clear();
+                            }
+                        }
                     }
-                    if ("TOTAL".equalsIgnoreCase(parent)) {
-                        skipped++;
-                        continue;
-                    }
-                    if (!code.chars().allMatch(Character::isDigit)) {
-                        skipped++;
-                        continue;
-                    }
-                    // Only import levels 2, 4, or 6
-                    if (!List.of("2", "4", "6").contains(level)) {
-                        skipped++;
-                        continue;
-                    }
-                    // Uncomment this if you only want HS6-level codes:
-                    // if (!"6".equals(level)) continue;
+                }
 
-                    HsSection section = sectionRepo.findByCode(sectionCode).orElse(null);
-
-                    HsCode hs = new HsCode();
-                    hs.setHsCode(code);
-                    hs.setDescription(desc);
-                    hs.setParent(parent);
-                    hs.setLevel(level);
-                    hs.setSection(section);
-
-                    batch.add(hs);
-
-                    if (batch.size() == 2000) {
-                        codeRepo.saveAll(batch);
-                        batch.clear();
+                // Fallback examples when file is missing
+                if (batch.isEmpty()) {
+                    Map<String, String> fallback = Map.of(
+                            "851713", "Telephone sets; smartphones for cellular or other wireless networks",
+                            "847130", "Portable automatic data processing machines (laptops)",
+                            "852852", "Monitors and projectors, not incorporating television reception apparatus",
+                            "850760", "Lithium-ion accumulators",
+                            "851762", "Machines for the reception, conversion and transmission of data (routers)",
+                            "854231", "Electronic integrated circuits; processors and controllers"
+                    );
+                    // Try to attach common electronics section if present
+                    HsSection electronics = sectionRepo.findByCode("XVI").orElse(null);
+                    for (Map.Entry<String, String> e : fallback.entrySet()) {
+                        HsCode c = new HsCode();
+                        c.setHsCode(e.getKey());
+                        c.setDescription(e.getValue());
+                        c.setLevel("6");
+                        c.setParent(e.getKey().substring(0, Math.min(4, e.getKey().length())));
+                        c.setSection(electronics);
+                        batch.add(c);
                     }
                 }
 
                 if (!batch.isEmpty()) codeRepo.saveAll(batch);
-                System.out.printf("HS code import complete. Skipped %d summary rows.%n", skipped);
-
+                codeRepo.flush();
+                System.out.println("✅ HS codes loaded: " + (batch.size()));
             } catch (Exception e) {
                 System.err.println("Failed to load HS codes: " + e.getMessage());
             }
@@ -101,6 +113,6 @@ public class HsCodeLoader {
 
     private static String safe(CSVRecord r, String h) {
         String v = r.isMapped(h) ? r.get(h) : "";
-        return v == null ? "" : v.trim().replaceAll("^\"|\"$", "");
+        return v == null ? "" : v.trim();
     }
 }

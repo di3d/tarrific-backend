@@ -8,9 +8,6 @@ public class ExchangeResponse {
     private String to;
     private String date;
 
-    public ExchangeResponse() {
-    }
-
     public ExchangeResponse(BigDecimal converted, BigDecimal rate, String to, String date) {
         this.converted = converted;
         this.rate = rate;

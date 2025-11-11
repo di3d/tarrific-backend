@@ -6,63 +6,63 @@ import com.tarrific.backend.repository.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.List;
+import java.util.*;
 
 @Service
 @RequiredArgsConstructor
 public class DashboardService {
 
-    private final PreferentialTariffRepository preferentialTariffRepository;
-    private final TariffOriginRepository tariffOriginRepository;
-    private final TariffDestinationRepository tariffDestinationRepository;
+    private final TariffRepository tariffRepository;
+    private final TradeAgreementRepository agreementRepository;
+    private final TradeAgreementCountryRepository tacRepository;
+    private final CountryRepository countryRepository;
 
     /**
-     * Get all active trade agreements with their associated countries and HS codes
-     * This endpoint is backward-compatible with the old /tariffs endpoint format
+     * Builds a flattened tariff + agreement view for frontend visualizations.
+     * Compatible with MapPage expecting fields like:
+     * countryA, countryB, hsCode, rate, tariffType, agreementName
      */
     public List<TradeAgreementViewDTO> getAllActiveTradeAgreements() {
         List<TradeAgreementViewDTO> results = new ArrayList<>();
         Date now = new Date();
 
-        // Get all preferential tariffs
-        List<PreferentialTariff> preferentialTariffs = preferentialTariffRepository.findAll();
+        // Fetch all trade agreements
+        List<TradeAgreement> agreements = agreementRepository.findAll();
+        // Fetch all tariffs
+        List<Tariff> tariffs = tariffRepository.findAll();
 
-        for (PreferentialTariff prefTariff : preferentialTariffs) {
-            // Check if preferential tariff is active
-            if (prefTariff.getEffectiveDate() != null && prefTariff.getEffectiveDate().after(now)) {
-                continue; // Not yet effective
-            }
-            if (prefTariff.getExpiryDate() != null && prefTariff.getExpiryDate().before(now)) {
-                continue; // Already expired
-            }
+        // Iterate through each trade agreement
+        for (TradeAgreement agreement : agreements) {
+            // Get countries under this agreement
+            List<Country> memberCountries = tacRepository.findCountriesByAgreementId(agreement.getAgreementId());
+            if (memberCountries.isEmpty()) continue;
 
-            Tariff tariff = prefTariff.getTariff();
-            if (tariff == null) continue;
+            // For each tariff, create country pairs within the same agreement
+            for (Tariff tariff : tariffs) {
+                if (tariff.getEffectiveDate() != null && tariff.getEffectiveDate().after(now)) {
+                    continue; // Not yet effective
+                }
+                if (tariff.getExpiryDate() != null && tariff.getExpiryDate().before(now)) {
+                    continue; // Expired
+                }
 
-            // Get origins and destinations for this tariff
-            List<TariffOrigin> origins = tariffOriginRepository.findByTariff(tariff);
-            List<TariffDestination> destinations = tariffDestinationRepository.findByTariff(tariff);
+                for (Country origin : memberCountries) {
+                    for (Country destination : memberCountries) {
+                        if (origin.getCountryId().equals(destination.getCountryId())) continue;
 
-            // Create a view DTO for each origin-destination combination
-            for (TariffOrigin origin : origins) {
-                for (TariffDestination destination : destinations) {
-                    TradeAgreementViewDTO dto = new TradeAgreementViewDTO();
-                    dto.setId(prefTariff.getPrefTariffId());
-                    dto.setCountryA(origin.getCountry().getName());
-                    dto.setCountryB(destination.getCountry().getName());
-                    dto.setHsCode(tariff.getHsCode().getHsCode());
-                    dto.setRate(prefTariff.getPreferentialRate() != null ? 
-                            prefTariff.getPreferentialRate().doubleValue() : 0.0);
-                    dto.setTariffType(prefTariff.getRateType() != null ? 
-                            prefTariff.getRateType() : "PREFERENTIAL");
-                    dto.setStartDate(prefTariff.getEffectiveDate());
-                    dto.setEndDate(prefTariff.getExpiryDate());
-                    dto.setAgreementName(prefTariff.getAgreement() != null ? 
-                            prefTariff.getAgreement().getName() : "Unknown");
-                    
-                    results.add(dto);
+                        TradeAgreementViewDTO dto = new TradeAgreementViewDTO();
+                        dto.setId(tariff.getTariffId());
+                        dto.setCountryA(origin.getName());
+                        dto.setCountryB(destination.getName());
+                        dto.setHsCode(tariff.getHsCode() != null ? tariff.getHsCode().getHsCode() : "Unknown");
+                        dto.setRate(tariff.getBaseRate() != null ? tariff.getBaseRate().doubleValue() : 0.0);
+                        dto.setTariffType(tariff.getRateType() != null ? tariff.getRateType() : "Ad Valorem");
+                        dto.setStartDate(tariff.getEffectiveDate());
+                        dto.setEndDate(tariff.getExpiryDate());
+                        dto.setAgreementName(agreement.getName());
+
+                        results.add(dto);
+                    }
                 }
             }
         }

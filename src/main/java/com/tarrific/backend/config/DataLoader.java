@@ -2,218 +2,308 @@ package com.tarrific.backend.config;
 
 import com.tarrific.backend.model.*;
 import com.tarrific.backend.repository.*;
-import org.springframework.boot.context.event.ApplicationReadyEvent;
-import org.springframework.context.ApplicationListener;
+import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.DependsOn;
 import org.springframework.core.annotation.Order;
+import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Calendar;
-import java.util.Date;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
+import java.util.stream.Collectors;
 
-@Order(3)
 @Configuration
 public class DataLoader {
 
-    @Bean
-    ApplicationListener<ApplicationReadyEvent> initDataListener(
+    /**
+     * Seeds core Tarrific data after HS sections and codes are available.
+     * Populates countries, trade agreements, tariffs, origins/destinations, and preferential rates.
+     */
+    @Bean(name = "appDataSeeder")
+    @Order(3)
+    @DependsOn({"hsSectionSeeder", "hsCodeSeeder"})
+    @Transactional
+    public CommandLineRunner appDataSeeder(
             CountryRepository countryRepo,
-            HsCodeRepository hsRepo,
-            TariffRepository tariffRepo,
-            TariffOriginRepository tariffOriginRepo,
-            TariffDestinationRepository tariffDestinationRepo,
-            TradeAgreementRepository tradeRepo,
+            TradeAgreementRepository agreementRepo,
             TradeAgreementCountryRepository tacRepo,
-            PreferentialTariffRepository prefRepo
+            TariffRepository tariffRepo,
+            TariffOriginRepository originRepo,
+            TariffDestinationRepository destRepo,
+            PreferentialTariffRepository prefRepo,
+            HsCodeRepository hsRepo
     ) {
-        return event -> {
-            // === COUNTRIES ===
-            if (countryRepo.count() == 0) {
-                Country sg = save(countryRepo, "Singapore","SG","Asia");
-                Country my = save(countryRepo, "Malaysia","MY","Asia");
-                Country jp = save(countryRepo, "Japan","JP","Asia");
-                Country cn = save(countryRepo, "China","CN","Asia");
-                Country kr = save(countryRepo, "South Korea","KR","Asia");
-                Country th = save(countryRepo, "Thailand","TH","Asia");
-                Country id = save(countryRepo, "Indonesia","ID","Asia");
-                Country vn = save(countryRepo, "Vietnam","VN","Asia");
-                Country ph = save(countryRepo, "Philippines","PH","Asia");
-                Country au = save(countryRepo, "Australia","AU","Oceania");
-                Country nz = save(countryRepo, "New Zealand","NZ","Oceania");
-                Country in = save(countryRepo, "India","IN","Asia");
-                Country us = save(countryRepo, "United States","US","North America");
-                System.out.println("Countries seeded.");
-            }
-
-            // === Ensure HS Codes exist (from HsCodeLoader) ===
-            if (hsRepo.count() == 0) {
-                System.err.println("HS codes not loaded yet. HsCodeLoader should import CSV before DataLoader runs.");
-                return;
-            }
-
-            // Example lookups (using real imported HS6 codes)
-            HsCode phones     = findHs(hsRepo, "851713"); // Smartphones
-            HsCode telephones = findHs(hsRepo, "851714"); // Non-smartphones
-            HsCode laptops    = findHs(hsRepo, "847130");
-            HsCode displays   = findHs(hsRepo, "852852");
-            HsCode batteries  = findHs(hsRepo, "850760");
-            HsCode routers    = findHs(hsRepo, "851762");
-            HsCode processors = findHs(hsRepo, "854231");
-
-            // If any key HS codes missing, skip tariff seeding
-            if (phones == null || laptops == null || displays == null ||
-                    batteries == null || routers == null || processors == null) {
-                System.err.println("Some example HS codes missing from DB. Skipping tariff seeding.");
-                return;
-            }
-
-            // === Base Tariffs ===
-            if (tariffRepo.count() == 0) {
-                Tariff tPhones = tariff(phones,10f,"Ad Valorem");
-                Tariff tLaps  = tariff(laptops,5f,"Ad Valorem");
-                Tariff tDisp  = tariff(displays,12f,"Ad Valorem");
-                Tariff tBatt  = tariff(batteries,6f,"Ad Valorem");
-                Tariff tRout  = tariff(routers,8f,"Ad Valorem");
-                Tariff tProc  = tariff(processors,3f,"Ad Valorem");
-
-                tariffRepo.saveAll(List.of(tPhones,tLaps,tDisp,tBatt,tRout,tProc));
-                System.out.println("Base tariffs seeded.");
-
-                // === Allowed Origins & Destinations ===
-                List<Country> allCountries = countryRepo.findAll();
-                List<Country> asean = allCountries.stream()
-                        .filter(c -> List.of("SG","MY","TH","ID","VN","PH").contains(c.getIsoCode()))
-                        .toList();
-
-                List<Country> majorExporters = allCountries.stream()
-                        .filter(c -> List.of("CN","JP","KR","US","IN").contains(c.getIsoCode()))
-                        .toList();
-
-                for (Tariff t : List.of(tPhones,tLaps,tDisp,tBatt,tRout,tProc)) {
-                    for (Country c : majorExporters) {
-                        TariffOrigin o = new TariffOrigin();
-                        o.setTariff(t);
-                        o.setCountry(c);
-                        tariffOriginRepo.save(o);
-                    }
-                    for (Country c : asean) {
-                        TariffDestination d = new TariffDestination();
-                        d.setTariff(t);
-                        d.setCountry(c);
-                        tariffDestinationRepo.save(d);
-                    }
-                }
-                System.out.println("Origins and destinations seeded.");
-            }
-
-            // === Trade Agreements ===
-            if (tradeRepo.count() == 0) {
-                TradeAgreement afta = agreement(tradeRepo, "ASEAN Free Trade Area",
-                        "ASEAN intra-regional", 2030);
-                TradeAgreement rcep = agreement(tradeRepo, "RCEP",
-                        "ASEAN + CN, JP, KR, AU, NZ", 2035);
-                TradeAgreement fta_us_sg = agreement(tradeRepo, "US-SG FTA",
-                        "Bilateral SG-USA", 2032);
-
-                // Memberships
-                List<Country> asean = countryRepo.findAll().stream()
-                        .filter(c -> List.of("SG","MY","TH","ID","VN","PH").contains(c.getIsoCode()))
-                        .toList();
-
-                for (Country c : asean) tacRepo.save(link(afta, c));
-                for (Country c : countryRepo.findAll().stream()
-                        .filter(c -> List.of("SG","MY","CN","JP","KR","AU","NZ").contains(c.getIsoCode()))
-                        .toList()) {
-                    tacRepo.save(link(rcep, c));
-                }
-                tacRepo.save(link(fta_us_sg, countryRepo.findByIsoCodeIgnoreCase("SG").orElseThrow()));
-                tacRepo.save(link(fta_us_sg, countryRepo.findByIsoCodeIgnoreCase("US").orElseThrow()));
-                System.out.println("Trade agreements seeded.");
-            }
-
-            // === Preferential Tariffs ===
-            if (prefRepo.count() == 0) {
-                Tariff tPhones = tariffRepo.findByHsCode(phones).stream().findFirst().orElseThrow();
-                Tariff tLaps   = tariffRepo.findByHsCode(laptops).stream().findFirst().orElseThrow();
-                Tariff tBatt   = tariffRepo.findByHsCode(batteries).stream().findFirst().orElseThrow();
-
-                TradeAgreement rcep = tradeRepo.findByName("RCEP").orElseThrow();
-                TradeAgreement afta = tradeRepo.findByName("ASEAN Free Trade Area").orElseThrow();
-                TradeAgreement fta  = tradeRepo.findByName("US-SG FTA").orElseThrow();
-
-                prefRepo.save(pref(tPhones, rcep, 0f));
-                prefRepo.save(pref(tLaps,  rcep, 1f));
-                prefRepo.save(pref(tBatt,  afta, 2f));
-                prefRepo.save(pref(tPhones, fta, 0f));
-                System.out.println("Preferential tariffs seeded.");
-            }
+        return args -> {
+            seedCountries(countryRepo);
+            Map<String, TradeAgreement> agreements = seedTradeAgreements(agreementRepo);
+            seedAgreementCountries(tacRepo, agreements, countryRepo);
+            seedTariffs(tariffRepo, originRepo, destRepo, prefRepo, agreements, countryRepo, hsRepo);
         };
     }
 
-    // --- Helpers ---
-    private Country save(CountryRepository repo, String name, String iso, String region){
+    // ==========================================================
+    // ================ 1. COUNTRY SEEDING =======================
+    // ==========================================================
+
+    private void seedCountries(CountryRepository repo) {
+        if (repo.count() > 0) {
+            System.out.println("Countries already exist. Skipping.");
+            return;
+        }
+
+        repo.saveAll(List.of(
+                country("Singapore", "SG", "Asia"),
+                country("Malaysia", "MY", "Asia"),
+                country("Japan", "JP", "Asia"),
+                country("China", "CN", "Asia"),
+                country("South Korea", "KR", "Asia"),
+                country("Thailand", "TH", "Asia"),
+                country("Indonesia", "ID", "Asia"),
+                country("Vietnam", "VN", "Asia"),
+                country("Philippines", "PH", "Asia"),
+                country("Australia", "AU", "Oceania"),
+                country("New Zealand", "NZ", "Oceania"),
+                country("India", "IN", "Asia"),
+                country("United States", "US", "North America")
+        ));
+        repo.flush();
+        System.out.println("✅ Countries seeded.");
+    }
+
+    private Country country(String name, String iso, String region) {
         Country c = new Country();
         c.setName(name);
         c.setIsoCode(iso);
         c.setRegion(region);
-        return repo.save(c);
+        return c;
     }
 
-    private HsCode findHs(HsCodeRepository repo, String code) {
-        Optional<HsCode> opt = repo.findByHsCode(code);
-        return opt.orElse(null);
+    // ==========================================================
+    // ================ 2. TRADE AGREEMENTS ======================
+    // ==========================================================
+
+    private Map<String, TradeAgreement> seedTradeAgreements(TradeAgreementRepository repo) {
+        if (repo.count() == 0) {
+            repo.saveAll(List.of(
+                    agreement("AFTA", "ASEAN Free Trade Area"),
+                    agreement("RCEP", "Regional Comprehensive Economic Partnership")
+            ));
+            repo.flush();
+        }
+
+        Map<String, TradeAgreement> map = new HashMap<>();
+        for (TradeAgreement a : repo.findAll()) map.put(a.getName(), a);
+        System.out.println("✅ Trade agreements ensured.");
+        return map;
     }
 
-    private Tariff tariff(HsCode hs, float rate, String type) {
-        Tariff t = new Tariff();
-        t.setHsCode(hs);
-        t.setBaseRate(rate);
-        t.setRateType(type);
-
-        Date now = new Date();
-        t.setEffectiveDate(now);
-
-        // expiry = 5 years from now
+    private TradeAgreement agreement(String name, String desc) {
+        TradeAgreement ta = new TradeAgreement();
+        ta.setName(name);
+        ta.setDescription(desc);
+        ta.setEffectiveDate(new Date());
         Calendar cal = Calendar.getInstance();
-        cal.setTime(now);
+        cal.add(Calendar.YEAR, 5);
+        ta.setExpiryDate(cal.getTime());
+        return ta;
+    }
+
+    // ==========================================================
+    // ================ 3. AGREEMENT COUNTRIES ==================
+    // ==========================================================
+
+    private void seedAgreementCountries(TradeAgreementCountryRepository tacRepo,
+                                        Map<String, TradeAgreement> agreements,
+                                        CountryRepository countryRepo) {
+        if (tacRepo.count() > 0) {
+            System.out.println("Trade agreement countries already exist. Skipping.");
+            return;
+        }
+
+        Map<String, Country> byIso = countryRepo.findAll().stream()
+                .collect(Collectors.toMap(Country::getIsoCode, c -> c));
+
+        List<String> aftaIso = List.of("SG", "MY", "TH", "ID", "VN", "PH");
+        List<String> rcepIso = List.of("SG", "MY", "TH", "ID", "VN", "PH", "JP", "CN", "KR", "AU", "NZ");
+
+        TradeAgreement afta = agreements.get("AFTA");
+        TradeAgreement rcep = agreements.get("RCEP");
+
+        if (afta != null)
+            aftaIso.forEach(iso -> saveAgreementCountry(tacRepo, afta, byIso.get(iso)));
+        if (rcep != null)
+            rcepIso.forEach(iso -> saveAgreementCountry(tacRepo, rcep, byIso.get(iso)));
+
+        tacRepo.flush();
+        System.out.println("✅ Trade agreement countries seeded.");
+    }
+
+    private void saveAgreementCountry(TradeAgreementCountryRepository repo, TradeAgreement ta, Country c) {
+        if (c == null) return;
+        TradeAgreementCountry row = new TradeAgreementCountry();
+        row.setAgreement(ta);
+        row.setCountry(c);
+        repo.save(row);
+    }
+
+    // ==========================================================
+    // ================ 4. TARIFFS + LINKS ======================
+    // ==========================================================
+
+    private void seedTariffs(
+            TariffRepository tariffRepo,
+            TariffOriginRepository originRepo,
+            TariffDestinationRepository destRepo,
+            PreferentialTariffRepository prefRepo,
+            Map<String, TradeAgreement> agreements,
+            CountryRepository countryRepo,
+            HsCodeRepository hsRepo
+    ) {
+        if (tariffRepo.count() > 0) {
+            System.out.println("Tariffs already exist. Skipping.");
+            return;
+        }
+
+        HsCode phones = hsRepo.findById("851713").orElse(null);
+        HsCode laptops = hsRepo.findById("847130").orElse(null);
+        HsCode monitors = hsRepo.findById("852852").orElse(null);
+        HsCode batteries = hsRepo.findById("850760").orElse(null);
+        HsCode routers = hsRepo.findById("851762").orElse(null);
+        HsCode processors = hsRepo.findById("854231").orElse(null);
+
+        List<Tariff> tariffs = List.of(
+                tariff(phones, 10f, null, null, "Ad Valorem"),
+                tariff(laptops, 5f, null, null, "Ad Valorem"),
+                tariff(monitors, null, 0.25f, "kg", "Specific"),
+                tariff(batteries, null, 1.5f, "piece", "Specific"),
+                tariff(routers, 8f, null, null, "Ad Valorem"),
+                tariff(processors, 3f, 0.15f, "piece", "Mixed")
+        );
+
+        tariffRepo.saveAll(tariffs);
+        tariffRepo.flush();
+        System.out.println("✅ Base tariffs seeded.");
+
+        assignOriginsAndDestinations(tariffs, originRepo, destRepo, countryRepo);
+        seedPreferentialTariffs(tariffs, prefRepo, agreements);
+    }
+
+    private Tariff tariff(HsCode code, Float baseRate, Float specificRate, String unit, String rateType) {
+        Tariff t = new Tariff();
+        t.setHsCode(code);
+        t.setBaseRate(baseRate);
+        t.setSpecificRate(specificRate);
+        t.setUnit(unit);
+        t.setRateType(rateType);
+        t.setEffectiveDate(new Date());
+        Calendar cal = Calendar.getInstance();
         cal.add(Calendar.YEAR, 5);
         t.setExpiryDate(cal.getTime());
-
         return t;
     }
 
+    // ==========================================================
+    // ================ 5. RANDOMIZED LINKS =====================
+    // ==========================================================
 
-    private TradeAgreement agreement(TradeAgreementRepository r, String n, String d, int expiryYear){
-        TradeAgreement a = new TradeAgreement();
-        a.setName(n);
-        a.setDescription(d);
-        Date now = new Date();
-        a.setEffectiveDate(now);
+    private void assignOriginsAndDestinations(
+            List<Tariff> tariffs,
+            TariffOriginRepository originRepo,
+            TariffDestinationRepository destRepo,
+            CountryRepository countryRepo
+    ) {
+        Map<String, Country> byIso = countryRepo.findAll().stream()
+                .collect(Collectors.toMap(Country::getIsoCode, c -> c));
+        List<Country> asean = new ArrayList<>(List.of("SG", "MY", "TH", "ID", "VN", "PH")
+                .stream().map(byIso::get).filter(Objects::nonNull).toList());
 
-        Calendar cal = Calendar.getInstance();
-        cal.setTime(now);
-        cal.set(Calendar.YEAR, expiryYear);
-        a.setExpiryDate(cal.getTime());
+        Random rand = new Random();
 
-        return r.save(a);
+        for (Tariff t : tariffs) {
+            Collections.shuffle(asean);
+
+            // choose 2–4 origins
+            int originCount = 2 + rand.nextInt(Math.max(1, asean.size() - 2));
+            List<Country> origins = asean.subList(0, Math.min(originCount, asean.size()));
+
+            for (Country origin : origins) {
+                TariffOrigin o = new TariffOrigin();
+                o.getId().setTariffId(t.getTariffId());
+                o.getId().setCountryId(origin.getCountryId());
+                o.setTariff(t);
+                o.setCountry(origin);
+                originRepo.save(o);
+            }
+
+            // choose 1–2 destinations excluding origins
+            List<Country> validDestinations = asean.stream()
+                    .filter(c -> !origins.contains(c))
+                    .collect(Collectors.toList());
+
+            if (!validDestinations.isEmpty()) {
+                int destCount = 1 + rand.nextInt(Math.max(1, validDestinations.size() - 1));
+                Collections.shuffle(validDestinations);
+
+                List<Country> destinations = validDestinations.subList(0, destCount);
+                for (Country dest : destinations) {
+                    TariffDestination d = new TariffDestination();
+                    d.getId().setTariffId(t.getTariffId());
+                    d.getId().setCountryId(dest.getCountryId());
+                    d.setTariff(t);
+                    d.setCountry(dest);
+                    destRepo.save(d);
+                }
+            }
+        }
+
+        originRepo.flush();
+        destRepo.flush();
+        System.out.println("✅ Tariff origins/destinations seeded (randomized, no self-links).");
     }
 
-    private TradeAgreementCountry link(TradeAgreement a, Country c){
-        TradeAgreementCountry x = new TradeAgreementCountry();
-        x.setAgreement(a);
-        x.setCountry(c);
-        return x;
+    // ==========================================================
+    // ================ 6. PREFERENTIAL RATES ===================
+    // ==========================================================
+
+    private void seedPreferentialTariffs(
+            List<Tariff> tariffs,
+            PreferentialTariffRepository prefRepo,
+            Map<String, TradeAgreement> agreements
+    ) {
+        Random rand = new Random();
+        TradeAgreement afta = agreements.get("AFTA");
+        TradeAgreement rcep = agreements.get("RCEP");
+
+        for (Tariff t : tariffs) {
+            if (t.getBaseRate() == null) continue;
+
+            // AFTA 40–60% of base
+            if (afta != null) {
+                float aftaRate = (float) (t.getBaseRate() * (0.4 + rand.nextFloat() * 0.2));
+                prefRepo.save(pref(t, afta, aftaRate));
+            }
+
+            // RCEP 60–80% of base
+            if (rcep != null) {
+                float rcepRate = (float) (t.getBaseRate() * (0.6 + rand.nextFloat() * 0.2));
+                prefRepo.save(pref(t, rcep, rcepRate));
+            }
+        }
+
+        prefRepo.flush();
+        System.out.println("✅ Preferential tariffs seeded (randomized).");
     }
 
-    private PreferentialTariff pref(Tariff t, TradeAgreement a, float rate){
+    private PreferentialTariff pref(Tariff t, TradeAgreement a, float rate) {
         PreferentialTariff p = new PreferentialTariff();
         p.setTariff(t);
         p.setAgreement(a);
         p.setPreferentialRate(rate);
         p.setRateType("Preferential");
         p.setEffectiveDate(new Date());
+        Calendar cal = Calendar.getInstance();
+        cal.add(Calendar.YEAR, 5);
+        p.setExpiryDate(cal.getTime());
         return p;
     }
 }

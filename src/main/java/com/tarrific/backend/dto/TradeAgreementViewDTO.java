@@ -12,17 +12,16 @@ import java.util.Date;
 @AllArgsConstructor
 public class TradeAgreementViewDTO {
     private Integer id;
-    private String countryA;
-    private String countryB;
+    private String agreementName;
     private String hsCode;
     private Double rate;
     private String tariffType;
-    
+    private String countryA;
+    private String countryB;
+
     @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd")
     private Date startDate;
-    
+
     @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd")
     private Date endDate;
-    
-    private String agreementName;
 }

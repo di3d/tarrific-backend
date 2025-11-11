@@ -8,3 +8,4 @@ import java.util.Optional;
 public interface HsSectionRepository extends JpaRepository<HsSection, Long> {
     Optional<HsSection> findByCode(String code);
 }
+

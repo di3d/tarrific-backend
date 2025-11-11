@@ -71,19 +71,36 @@ public class TariffController {
         Tariff existing = tariffRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Tariff not found: " + id));
 
+        // Attach existing HS Code and update other fields
         attachExistingHsCode(incoming);
-        existing.setBaseRate(incoming.getBaseRate());
-        existing.setRateType(incoming.getRateType());
+        existing.setHsCode(incoming.getHsCode());
         existing.setEffectiveDate(incoming.getEffectiveDate());
         existing.setExpiryDate(incoming.getExpiryDate());
-        existing.setHsCode(incoming.getHsCode());
+        existing.setRateType(incoming.getRateType());
 
+        // Handle specific and mixed rate types (baseRate, specificRate)
+        if ("Ad Valorem".equals(incoming.getRateType())) {
+            existing.setBaseRate(incoming.getBaseRate());
+            existing.setSpecificRate(null);  // Ad Valorem doesn't use specificRate
+            existing.setUnit(null);          // Ad Valorem doesn't need a unit
+        } else if ("Specific".equals(incoming.getRateType())) {
+            existing.setBaseRate(null);     // Specific uses specificRate
+            existing.setSpecificRate(incoming.getSpecificRate());
+            existing.setUnit(incoming.getUnit());  // Set unit for Specific rate
+        } else if ("Mixed".equals(incoming.getRateType())) {
+            existing.setBaseRate(incoming.getBaseRate());
+            existing.setSpecificRate(incoming.getSpecificRate());
+            existing.setUnit(incoming.getUnit());  // Set unit for Mixed rate
+        }
+
+        // Clear existing origins and destinations before saving new ones
         for (TariffOrigin o : new ArrayList<>(existing.getTariffOrigins())) o.setTariff(null);
         for (TariffDestination d : new ArrayList<>(existing.getTariffDestinations())) d.setTariff(null);
         existing.getTariffOrigins().clear();
         existing.getTariffDestinations().clear();
         tariffRepository.flush();
 
+        // Normalize and save the updated origin and destination countries
         normalizeCountries(incoming);
         for (TariffOrigin o : incoming.getTariffOrigins()) {
             o.setTariff(existing);
@@ -94,6 +111,7 @@ public class TariffController {
             existing.getTariffDestinations().add(d);
         }
 
+        // Save the updated tariff
         return tariffRepository.save(existing);
     }
 
