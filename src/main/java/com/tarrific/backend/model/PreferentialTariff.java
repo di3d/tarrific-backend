@@ -9,7 +9,7 @@ import java.util.Date;
 @Getter
 @Setter
 @Entity
-@Table(name = "preferential_tariff", schema = "tariff")
+@Table(name = "preferential_tariff", schema = "TARIFF")
 public class PreferentialTariff {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

@@ -10,7 +10,7 @@ import java.util.Objects;
 @Getter
 @Setter
 @Entity
-@Table(name = "tariff_origin", schema = "tariff")
+@Table(name = "tariff_origin", schema = "TARIFF")
 public class TariffOrigin {
 
     @Embeddable
